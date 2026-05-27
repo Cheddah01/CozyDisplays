@@ -1,0 +1,20 @@
+name: CozyDisplays
+version: '${project.version}'
+main: gg.cozycrafters.cozydisplays.CozyDisplaysPlugin
+api-version: '1.21'
+author: Cozy Crafters
+description: Lightweight fixed-direction vanilla text_display hologram plugin.
+softdepend: [PlaceholderAPI]
+
+commands:
+  display:
+    description: Manage CozyDisplays text holograms.
+    usage: /display <create|addline|setline|removeline|movehere|snapwall|nudge|up|down|left|right|forward|back|scale|viewrange|viewrangeall|enabled|hide|show|info|stats|delete|list|reload>
+    aliases: [cozydisplay]
+    permission: cozydisplays.admin
+    permission-message: You do not have permission to use CozyDisplays.
+
+permissions:
+  cozydisplays.admin:
+    description: Allows managing CozyDisplays holograms.
+    default: op
