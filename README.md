@@ -143,6 +143,14 @@ Limit render range for dense signage:
 | Text is hard to position | Use `/display snapwall`, then the nudge shortcuts with small amounts such as `0.03` or `0.05`. |
 | Dense areas cause client lag | Lower `viewrange`, remove unneeded lines, or split signage across fewer visible displays. |
 
+## Support / Issues
+
+Please report bugs and documentation problems on the GitHub issue tracker:
+
+https://github.com/Cheddah01/CozyDisplays/issues
+
+When reporting bugs, include your server software/version, CozyDisplays version, Java version, relevant config snippets, and any console errors.
+
 ## Building From Source
 
 Requirements:

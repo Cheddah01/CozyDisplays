@@ -1,0 +1,55 @@
+name: Feature request
+description: Suggest a small CozyDisplays display/signage improvement.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        CozyDisplays is intentionally lightweight. Feature requests should fit vanilla TextDisplay-based signage, floating text, wall displays, or simple admin workflows.
+
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: Briefly describe the requested improvement.
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: What server-admin problem would this solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed
+    attributes:
+      label: Proposed behavior
+      description: Describe the behavior you would expect.
+    validations:
+      required: true
+
+  - type: textarea
+    id: fit
+    attributes:
+      label: Why this fits CozyDisplays
+      description: Explain why this belongs in a lightweight display/signage plugin.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Mention commands, config changes, other plugins, or workflows you already tried.
+
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
+      options:
+        - label: This request is for a lightweight display/signage feature, not a full hologram-suite replacement.
+          required: true

@@ -1,0 +1,120 @@
+name: Bug report
+description: Report a CozyDisplays bug or compatibility problem.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a CozyDisplays issue. Please include enough detail for the problem to be reproduced, and remove private information before submitting logs or config snippets.
+
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: Briefly describe the problem.
+      placeholder: Displays duplicate after reload, placeholders do not update, etc.
+    validations:
+      required: true
+
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened?
+      description: Tell us what you observed.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should have happened?
+      description: Tell us what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the smallest set of steps that reproduces the issue.
+      placeholder: |
+        1. Run /display create ...
+        2. Run /display reload
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: input
+    id: server
+    attributes:
+      label: Server software and version
+      placeholder: Paper 1.21.11 build ...
+    validations:
+      required: true
+
+  - type: input
+    id: cozydisplays-version
+    attributes:
+      label: CozyDisplays version
+      placeholder: 1.6.2
+    validations:
+      required: true
+
+  - type: input
+    id: java-version
+    attributes:
+      label: Java version
+      placeholder: Java 21
+    validations:
+      required: true
+
+  - type: dropdown
+    id: placeholderapi
+    attributes:
+      label: PlaceholderAPI installed?
+      options:
+        - "No"
+        - "Yes"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: textarea
+    id: plugins
+    attributes:
+      label: Other relevant plugins
+      description: List plugins that may affect displays, placeholders, entities, permissions, worlds, or reload behavior.
+      placeholder: PlaceholderAPI, world manager, permissions plugin, etc.
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Config snippets, if relevant
+      description: Paste only the relevant parts of config.yml or displays.yml. Remove private information first.
+      render: yaml
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console errors/logs
+      description: Paste relevant startup, reload, command, or stack trace output. Remove private information first.
+      render: text
+
+  - type: textarea
+    id: media
+    attributes:
+      label: Screenshots/videos, if useful
+      description: Drag and drop screenshots or short videos here if they help explain the issue.
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmation
+      options:
+        - label: I am using the latest CozyDisplays release.
+          required: true
+        - label: I checked existing issues first.
+          required: true
+        - label: I removed private information from logs/configs.
+          required: true
