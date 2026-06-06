@@ -22,6 +22,7 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
     private DisplayEditor editor;
     private PlaceholderService placeholders;
     private BukkitTask refreshTask;
+    private BukkitTask autoRotationTask;
     private int refreshSeconds;
     private int refreshMinimumIntervalSeconds;
     private double wallOffset;
@@ -39,6 +40,10 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
     private double interactionMaxWidth;
     private double interactionMaxHeight;
     private int interactionMaxCooldownSeconds;
+    private double editorRotationStepYaw;
+    private double editorRotationStepPitch;
+    private int rotationAutoUpdateTicks;
+    private double rotationMaxDegreesPerSecond;
 
     @Override
     public void onEnable() {
@@ -55,6 +60,7 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
         applyRefreshConfig();
         manager.loadAndSpawnAll();
         startPlaceholderRefreshTask();
+        startAutoRotationTask();
 
         PluginCommand command = getCommand("display");
         if (command == null) {
@@ -87,6 +93,7 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         stopPlaceholderRefreshTask();
+        stopAutoRotationTask();
         if (editor != null) {
             editor.closeAll();
         }
@@ -108,6 +115,7 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
         applyRefreshConfig();
         manager.reloadFromStorage();
         restartPlaceholderRefreshTask();
+        restartAutoRotationTask();
     }
 
     /* --------------------- placeholder refresh task --------------------- */
@@ -135,6 +143,11 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
         this.interactionDefaultHeight = readDouble("interaction.default-height", 1.0D, 0.1D, interactionMaxHeight);
         this.interactionDefaultCooldownSeconds = readInt("interaction.default-cooldown-seconds",
                 1, 0, interactionMaxCooldownSeconds);
+        this.editorRotationStepYaw = readDouble("editor.rotation-step-yaw", 15.0D, 0.1D, 360.0D);
+        this.editorRotationStepPitch = readDouble("editor.rotation-step-pitch", 15.0D, 0.1D, 360.0D);
+        this.rotationAutoUpdateTicks = readInt("rotation.auto-update-ticks", 2, 1, 200);
+        this.rotationMaxDegreesPerSecond = readDouble("rotation.max-degrees-per-second",
+                180.0D, 0.0D, 10_000.0D);
         manager.setDebug(getConfig().getBoolean("debug-placeholder-refresh", false));
         manager.setViewRangeDebug(getConfig().getBoolean("debug-view-range", false));
     }
@@ -170,6 +183,25 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
 
     public void restartPlaceholderRefreshTask() {
         startPlaceholderRefreshTask();
+    }
+
+    public void startAutoRotationTask() {
+        stopAutoRotationTask();
+        this.autoRotationTask = getServer().getScheduler().runTaskTimer(this, () -> {
+            double seconds = rotationAutoUpdateTicks / 20.0D;
+            manager.tickAutoRotations(seconds, rotationMaxDegreesPerSecond);
+        }, rotationAutoUpdateTicks, rotationAutoUpdateTicks);
+    }
+
+    public void stopAutoRotationTask() {
+        if (autoRotationTask != null) {
+            autoRotationTask.cancel();
+            autoRotationTask = null;
+        }
+    }
+
+    public void restartAutoRotationTask() {
+        startAutoRotationTask();
     }
 
     /** Outward offset from a wall face used by /display snapwall. */
@@ -224,6 +256,18 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
 
     public int getInteractionMaxCooldownSeconds() {
         return interactionMaxCooldownSeconds;
+    }
+
+    public double getEditorRotationStepYaw() {
+        return editorRotationStepYaw;
+    }
+
+    public double getEditorRotationStepPitch() {
+        return editorRotationStepPitch;
+    }
+
+    public double getRotationMaxDegreesPerSecond() {
+        return rotationMaxDegreesPerSecond;
     }
 
     /** Default TextDisplay view range; falls back to 12.0 if invalid. */

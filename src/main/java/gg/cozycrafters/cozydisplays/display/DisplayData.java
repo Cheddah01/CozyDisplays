@@ -44,6 +44,9 @@ public final class DisplayData {
     private double interactionWidth = 1.0D;
     private double interactionHeight = 1.0D;
     private int interactionCooldownSeconds = 1;
+    private boolean autoRotationEnabled = false;
+    private double autoYawPerSecond = 0.0D;
+    private double autoPitchPerSecond = 0.0D;
     private final List<String> interactionLeftActions = new ArrayList<>();
     private final List<String> interactionRightActions = new ArrayList<>();
 
@@ -268,6 +271,30 @@ public final class DisplayData {
         this.interactionCooldownSeconds = interactionCooldownSeconds;
     }
 
+    public boolean isAutoRotationEnabled() {
+        return autoRotationEnabled;
+    }
+
+    public void setAutoRotationEnabled(boolean autoRotationEnabled) {
+        this.autoRotationEnabled = autoRotationEnabled;
+    }
+
+    public double getAutoYawPerSecond() {
+        return autoYawPerSecond;
+    }
+
+    public void setAutoYawPerSecond(double autoYawPerSecond) {
+        this.autoYawPerSecond = autoYawPerSecond;
+    }
+
+    public double getAutoPitchPerSecond() {
+        return autoPitchPerSecond;
+    }
+
+    public void setAutoPitchPerSecond(double autoPitchPerSecond) {
+        this.autoPitchPerSecond = autoPitchPerSecond;
+    }
+
     public List<String> getInteractionLeftActions() {
         return interactionLeftActions;
     }
@@ -328,6 +355,9 @@ public final class DisplayData {
         copy.setInteractionWidth(interactionWidth);
         copy.setInteractionHeight(interactionHeight);
         copy.setInteractionCooldownSeconds(interactionCooldownSeconds);
+        copy.setAutoRotationEnabled(autoRotationEnabled);
+        copy.setAutoYawPerSecond(autoYawPerSecond);
+        copy.setAutoPitchPerSecond(autoPitchPerSecond);
         copy.setInteractionLeftActions(interactionLeftActions);
         copy.setInteractionRightActions(interactionRightActions);
         copy.setLines(lines);

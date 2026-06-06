@@ -39,6 +39,7 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
     private static final List<String> SUBS = List.of(
             "create", "addline", "setline", "removeline",
             "movehere", "nearby", "clone", "audit", "edit",
+            "rotate", "rotateby", "face", "spin",
             "snapwall", "nudge",
             "up", "down", "left", "right", "forward", "back",
             "scale", "viewrange", "viewrangeall", "enabled",
@@ -105,6 +106,10 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             case "clone" -> handleClone(sender, args);
             case "audit" -> handleAudit(sender);
             case "edit" -> handleEdit(sender, args);
+            case "rotate" -> handleRotate(sender, args);
+            case "rotateby" -> handleRotateBy(sender, args);
+            case "face" -> handleFace(sender, args);
+            case "spin" -> handleSpin(sender, args);
             case "snapwall" -> handleSnapWall(sender, args);
             case "nudge" -> handleNudge(sender, args);
             case "up", "down", "left", "right", "forward", "back" ->
@@ -459,6 +464,8 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         int missingEntities = 0;
         int missingInteractions = 0;
         int invalidMaterials = 0;
+        int invalidRotation = 0;
+        int autoRotating = 0;
         int invalid = 0;
         int text = 0;
         int item = 0;
@@ -479,6 +486,14 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             }
             if (data.getType() == DisplayType.BLOCK && !data.getBlockMaterial().isBlock()) {
                 invalidMaterials++;
+            }
+            if (!isFinite(data.getYaw()) || !isFinite(data.getPitch())
+                    || !isFinite(data.getAutoYawPerSecond())
+                    || !isFinite(data.getAutoPitchPerSecond())) {
+                invalidRotation++;
+            }
+            if (data.isAutoRotationEnabled()) {
+                autoRotating++;
             }
             if (!isFinite(data.getX()) || !isFinite(data.getY()) || !isFinite(data.getZ())
                     || !isFinite(data.getLineSpacing()) || !isFinite(data.getScale())
@@ -506,9 +521,12 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(TextUtil.info("Missing interactions: " + missingInteractions));
         sender.sendMessage(TextUtil.info("Orphan interactions: " + manager.countOrphanInteractions()));
         sender.sendMessage(TextUtil.info("Invalid materials: " + invalidMaterials));
+        sender.sendMessage(TextUtil.info("Auto-rotating displays: " + autoRotating));
+        sender.sendMessage(TextUtil.info("Invalid rotation values: " + invalidRotation));
         sender.sendMessage(TextUtil.info("Invalid entries: " + invalid));
         if (missingWorlds == 0 && missingEntities == 0 && missingInteractions == 0
-                && invalidMaterials == 0 && invalid == 0 && manager.countOrphanInteractions() == 0) {
+                && invalidMaterials == 0 && invalidRotation == 0
+                && invalid == 0 && manager.countOrphanInteractions() == 0) {
             sender.sendMessage(TextUtil.success("No issues found."));
         } else {
             sender.sendMessage(TextUtil.info("Use /display reload to respawn missing valid displays."));
@@ -530,6 +548,129 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             return;
         }
         editor.open(player, args[1]);
+    }
+
+    /* ---------------------------- rotation ----------------------------- */
+
+    private void handleRotate(CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage(TextUtil.error("Usage: /display rotate <id> <yaw> [pitch]"));
+            return;
+        }
+        DisplayData data = require(sender, args[1]);
+        if (data == null) {
+            return;
+        }
+        Double yaw = parseDouble(sender, args[2], "Yaw");
+        Double pitch = args.length >= 4 ? parseDouble(sender, args[3], "Pitch") : (double) data.getPitch();
+        if (yaw == null || pitch == null) {
+            sender.sendMessage(TextUtil.error("Angle values must be valid numbers."));
+            return;
+        }
+        if (args.length >= 5) {
+            sender.sendMessage(TextUtil.info("Roll is not supported in CozyDisplays 1.8.1."));
+        }
+        setRotation(data, yaw, pitch);
+        manager.saveAll();
+        manager.respawn(data);
+        sender.sendMessage(TextUtil.success("Rotated display '" + data.getId()
+                + "' to yaw=" + round(data.getYaw()) + ", pitch=" + round(data.getPitch()) + "."));
+    }
+
+    private void handleRotateBy(CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage(TextUtil.error("Usage: /display rotateby <id> <yawDelta> [pitchDelta]"));
+            return;
+        }
+        DisplayData data = require(sender, args[1]);
+        if (data == null) {
+            return;
+        }
+        Double yaw = parseDouble(sender, args[2], "Yaw delta");
+        Double pitch = args.length >= 4 ? parseDouble(sender, args[3], "Pitch delta") : 0.0D;
+        if (yaw == null || pitch == null) {
+            sender.sendMessage(TextUtil.error("Angle values must be valid numbers."));
+            return;
+        }
+        if (args.length >= 5) {
+            sender.sendMessage(TextUtil.info("Roll is not supported in CozyDisplays 1.8.1."));
+        }
+        setRotation(data, data.getYaw() + yaw, data.getPitch() + pitch);
+        manager.saveAll();
+        manager.respawn(data);
+        sender.sendMessage(TextUtil.success("Rotated display '" + data.getId()
+                + "' by yaw=" + round(yaw) + ", pitch=" + round(pitch) + "."));
+    }
+
+    private void handleFace(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(TextUtil.error("Only players can use this command."));
+            return;
+        }
+        if (args.length < 2) {
+            sender.sendMessage(TextUtil.error("Usage: /display face <id>"));
+            return;
+        }
+        DisplayData data = require(sender, args[1]);
+        if (data == null) {
+            return;
+        }
+        setRotation(data, player.getLocation().getYaw(), player.getLocation().getPitch());
+        manager.saveAll();
+        manager.respawn(data);
+        sender.sendMessage(TextUtil.success("Display '" + data.getId()
+                + "' now matches your facing direction."));
+    }
+
+    private void handleSpin(CommandSender sender, String[] args) {
+        if (args.length >= 2 && args[1].equalsIgnoreCase("stop")) {
+            if (args.length < 3) {
+                sender.sendMessage(TextUtil.error("Usage: /display spin stop <id>"));
+                return;
+            }
+            DisplayData data = require(sender, args[2]);
+            if (data == null) {
+                return;
+            }
+            data.setAutoRotationEnabled(false);
+            data.setAutoYawPerSecond(0.0D);
+            data.setAutoPitchPerSecond(0.0D);
+            manager.saveAll();
+            sender.sendMessage(TextUtil.info("Stopped auto-rotation for display '" + data.getId() + "'."));
+            return;
+        }
+
+        if (args.length < 3) {
+            sender.sendMessage(TextUtil.error("Usage: /display spin <id> <yawPerSecond> [pitchPerSecond]"));
+            return;
+        }
+        DisplayData data = require(sender, args[1]);
+        if (data == null) {
+            return;
+        }
+        Double yaw = parseDouble(sender, args[2], "Yaw speed");
+        Double pitch = args.length >= 4 ? parseDouble(sender, args[3], "Pitch speed") : 0.0D;
+        if (yaw == null || pitch == null) {
+            sender.sendMessage(TextUtil.error("Angle values must be valid numbers."));
+            return;
+        }
+        if (args.length >= 5) {
+            sender.sendMessage(TextUtil.info("Roll is not supported in CozyDisplays 1.8.1."));
+        }
+        double max = plugin.getRotationMaxDegreesPerSecond();
+        double clampedYaw = clamp(yaw, -max, max);
+        double clampedPitch = clamp(pitch, -max, max);
+        if (clampedYaw != yaw || clampedPitch != pitch) {
+            sender.sendMessage(TextUtil.info("Rotation speed was capped at "
+                    + round(max) + " degrees/sec."));
+        }
+        data.setAutoRotationEnabled(true);
+        data.setAutoYawPerSecond(clampedYaw);
+        data.setAutoPitchPerSecond(clampedPitch);
+        manager.saveAll();
+        sender.sendMessage(TextUtil.success("Enabled auto-rotation for '" + data.getId()
+                + "' at yaw=" + round(clampedYaw)
+                + ", pitch=" + round(clampedPitch) + " degrees/sec."));
     }
 
     /* ---------------------------- snapwall ------------------------------ */
@@ -865,6 +1006,10 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(TextUtil.info("Location: " + data.getWorld() + " "
                 + data.getX() + " " + data.getY() + " " + data.getZ()));
         sender.sendMessage(TextUtil.info("Yaw/Pitch: " + data.getYaw() + " / " + data.getPitch()));
+        sender.sendMessage(TextUtil.info("Auto-rotation: "
+                + (data.isAutoRotationEnabled() ? "enabled" : "disabled")
+                + ", yaw " + data.getAutoYawPerSecond() + " deg/s"
+                + ", pitch " + data.getAutoPitchPerSecond() + " deg/s"));
         sender.sendMessage(TextUtil.info("Refresh: " + (data.isRefreshEnabled() ? "enabled" : "disabled")
                 + ", interval " + data.getRefreshIntervalSeconds() + "s"
                 + ", only when viewed: " + data.isRefreshOnlyWhenViewed()
@@ -1257,6 +1402,11 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(TextUtil.info(" /display clone <sourceId> <newId>"));
         sender.sendMessage(TextUtil.info(" /display audit - Report display storage/spawn health."));
         sender.sendMessage(TextUtil.info(" /display edit <id> - Open the admin editor GUI."));
+        sender.sendMessage(TextUtil.info(" /display rotate <id> <yaw> [pitch]"));
+        sender.sendMessage(TextUtil.info(" /display rotateby <id> <yawDelta> [pitchDelta]"));
+        sender.sendMessage(TextUtil.info(" /display face <id>"));
+        sender.sendMessage(TextUtil.info(" /display spin <id> <yawPerSecond> [pitchPerSecond]"));
+        sender.sendMessage(TextUtil.info(" /display spin stop <id>"));
         sender.sendMessage(TextUtil.info(" /display snapwall <id> - Center a display on the targeted wall face."));
         sender.sendMessage(TextUtil.info(" /display nudge <id> <up|down|left|right|forward|back> [amount]"));
         sender.sendMessage(TextUtil.info(" /display up|down|left|right|forward|back <id> [amount]"));
@@ -1337,6 +1487,17 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             }
         }
 
+        if (sub.equals("spin")) {
+            if (args.length == 2) {
+                List<String> options = new ArrayList<>(manager.getDisplays().keySet());
+                options.add("stop");
+                return filter(options, args[1]);
+            }
+            if (args.length == 3 && args[1].equalsIgnoreCase("stop")) {
+                return filter(new ArrayList<>(manager.getDisplays().keySet()), args[2]);
+            }
+        }
+
         if (args.length == 3 && (sub.equals("setline") || sub.equals("removeline"))) {
             DisplayData data = manager.get(args[1]);
             if (data != null) {
@@ -1393,7 +1554,8 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             case "addline", "setline", "removeline", "movehere", "snapwall",
                  "nudge", "up", "down", "left", "right", "forward", "back",
                  "scale", "viewrange", "enabled", "hide", "show", "info",
-                 "edit", "clone", "setitem", "setblock", "delete" -> true;
+                 "edit", "clone", "rotate", "rotateby", "face",
+                 "setitem", "setblock", "delete" -> true;
             default -> false;
         };
     }
@@ -1451,6 +1613,11 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
 
     private double clamp(double value, double min, double max) {
         return Math.max(min, Math.min(max, value));
+    }
+
+    private void setRotation(DisplayData data, double yaw, double pitch) {
+        data.setRawLocation(data.getWorld(), data.getX(), data.getY(), data.getZ(),
+                (float) yaw, (float) pitch);
     }
 
     private String preview(DisplayData data) {

@@ -109,6 +109,12 @@ public final class DisplayStorage {
                 0, readInteractionMaxCooldownSeconds()));
         data.setInteractionLeftActions(sec.getStringList("interaction.actions.left"));
         data.setInteractionRightActions(sec.getStringList("interaction.actions.right"));
+        data.setAutoRotationEnabled(sec.getBoolean("rotation.auto.enabled", false));
+        double maxRotationSpeed = readMaxRotationSpeed();
+        data.setAutoYawPerSecond(readDouble(id, sec, "rotation.auto.yaw-per-second",
+                0.0D, -maxRotationSpeed, maxRotationSpeed));
+        data.setAutoPitchPerSecond(readDouble(id, sec, "rotation.auto.pitch-per-second",
+                0.0D, -maxRotationSpeed, maxRotationSpeed));
 
         List<String> lines = sec.getStringList("lines");
         data.setLines(lines);
@@ -149,6 +155,9 @@ public final class DisplayStorage {
             cfg.set(base + "interaction.cooldown-seconds", d.getInteractionCooldownSeconds());
             cfg.set(base + "interaction.actions.left", d.getInteractionLeftActions());
             cfg.set(base + "interaction.actions.right", d.getInteractionRightActions());
+            cfg.set(base + "rotation.auto.enabled", d.isAutoRotationEnabled());
+            cfg.set(base + "rotation.auto.yaw-per-second", d.getAutoYawPerSecond());
+            cfg.set(base + "rotation.auto.pitch-per-second", d.getAutoPitchPerSecond());
             cfg.set(base + "lines", d.getLines());
         }
 
@@ -248,6 +257,14 @@ public final class DisplayStorage {
     private int readInteractionMaxCooldownSeconds() {
         int value = plugin.getConfig().getInt("interaction.max-cooldown-seconds", 60);
         return Math.max(0, Math.min(86_400, value));
+    }
+
+    private double readMaxRotationSpeed() {
+        double value = plugin.getConfig().getDouble("rotation.max-degrees-per-second", 180.0D);
+        if (Double.isNaN(value) || Double.isInfinite(value)) {
+            return 180.0D;
+        }
+        return Math.max(0.0D, Math.min(10_000.0D, value));
     }
 
     private int readInt(String id, ConfigurationSection sec, String path,

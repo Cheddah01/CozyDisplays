@@ -10,6 +10,7 @@ larger hologram suite.
 - Create multi-line vanilla `TextDisplay` signage in-game.
 - Create vanilla `ItemDisplay` and `BlockDisplay` entries.
 - Move, nudge, clone, hide, show, scale, and delete displays with admin commands.
+- Rotate displays manually or enable optional yaw/pitch auto-spin.
 - Add optional clickable actions with safe `Interaction` hitboxes.
 - Snap displays to vertical wall faces for clean signage.
 - Find nearby displays and run read-only display audits for production maintenance.
@@ -83,6 +84,14 @@ Find and edit nearby displays:
 /display edit welcome
 ```
 
+Rotate a display:
+
+```text
+/display rotate welcome 45 0
+/display rotateby welcome 15
+/display face welcome
+```
+
 ## Commands
 
 | Command | Description |
@@ -99,6 +108,11 @@ Find and edit nearby displays:
 | `/display clone <sourceId> <newId>` | Copy a display's editable settings and lines to a new display at your location. |
 | `/display audit` | Show a read-only maintenance report for saved, spawned, missing-world, missing-entity, and invalid displays. |
 | `/display edit <id>` | Open the basic admin editor GUI. |
+| `/display rotate <id> <yaw> [pitch]` | Set absolute display yaw and pitch. |
+| `/display rotateby <id> <yawDelta> [pitchDelta]` | Add relative yaw and pitch. |
+| `/display face <id>` | Match the executing player's current yaw and pitch. |
+| `/display spin <id> <yawPerSecond> [pitchPerSecond]` | Enable yaw/pitch auto-rotation. |
+| `/display spin stop <id>` | Stop auto-rotation and keep the current in-memory rotation. |
 | `/display snapwall <id>` | Center a display on the targeted vertical block face. |
 | `/display nudge <id> <up\|down\|left\|right\|forward\|back> [amount]` | Move a display by a small amount. |
 | `/display up\|down\|left\|right\|forward\|back <id> [amount]` | Shortcut nudge commands. |
@@ -134,6 +148,8 @@ Find and edit nearby displays:
 - Suggest a clone command.
 - Show display type and item/block material when applicable.
 - Suggest `/display setitem` or `/display setblock` for item/block displays.
+- Rotate left/right around yaw and up/down around pitch.
+- Reset rotation or match the admin's current facing direction.
 - Nudge on X/Y/Z by `editor.nudge-step`.
 - Scale down, reset, or scale up.
 - Decrease or increase view range.
@@ -152,6 +168,25 @@ Saved displays have a `type`:
 
 Existing saved displays without a `type` load as `TEXT` for backwards
 compatibility. Placeholder refresh only applies to text displays.
+
+## Rotation
+
+Displays store yaw and pitch and apply them to text, item, and block displays.
+Roll is intentionally not implemented in 1.8.1 because supporting it cleanly
+would require a broader transformation rewrite.
+
+Auto-spin is disabled by default for existing and new displays. It uses one
+central scheduler and clamps speeds to `rotation.max-degrees-per-second`.
+
+Examples:
+
+```text
+/display rotate crate_icon 45 0
+/display rotateby crate_icon 15
+/display face welcome_text
+/display spin diamond_icon 30
+/display spin stop diamond_icon
+```
 
 ## Click Actions
 
@@ -225,6 +260,8 @@ PlaceholderAPI and entity respawn work on busy servers.
 | `interaction.max-width` | Maximum interaction hitbox width. |
 | `interaction.max-height` | Maximum interaction hitbox height. |
 | `interaction.max-cooldown-seconds` | Maximum interaction cooldown. |
+| `rotation.auto-update-ticks` | Tick interval for the central auto-rotation task. |
+| `rotation.max-degrees-per-second` | Maximum yaw/pitch spin speed accepted by config and commands. |
 | `wall-offset` | Distance pushed out from a wall by `/display snapwall`. |
 | `default-view-range` | Default render range in blocks for new or older saved displays. |
 | `display-entity-warning-threshold` | Logs a warning when spawned TextDisplay entities exceed this count. |
@@ -262,6 +299,13 @@ Update item and block materials:
 ```text
 /display setitem diamond_icon EMERALD
 /display setblock beacon_block DIAMOND_BLOCK
+```
+
+Spin an item display:
+
+```text
+/display spin diamond_icon 30
+/display spin stop diamond_icon
 ```
 
 Clone a display and move the clone:

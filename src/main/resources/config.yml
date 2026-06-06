@@ -29,6 +29,12 @@ interaction:
   max-height: 5.0
   max-cooldown-seconds: 60
 
+# Optional auto-rotation/spin controls. Existing displays do not spin unless
+# rotation.auto.enabled is true in displays.yml or /display spin is used.
+rotation:
+  auto-update-ticks: 2
+  max-degrees-per-second: 180.0
+
 # Distance the display is pushed out from a wall face by /display snapwall.
 # Too low z-fights with the block; too high floats off the wall.
 wall-offset: 0.03
@@ -61,6 +67,8 @@ editor:
   nudge-step: 0.1
   scale-step: 0.1
   view-range-step: 4
+  rotation-step-yaw: 15.0
+  rotation-step-pitch: 15.0
   items:
     info:
       name: "&b%id%"
@@ -83,6 +91,18 @@ editor:
       name: "&eBlock: &f%material%"
       lore:
         - "&7Click to suggest setblock command."
+    rotate-left:
+      name: "&eRotate Left"
+    rotate-right:
+      name: "&eRotate Right"
+    rotate-up:
+      name: "&eRotate Up"
+    rotate-down:
+      name: "&eRotate Down"
+    rotation-reset:
+      name: "&cReset Rotation"
+    face-me:
+      name: "&bFace Me"
     move-here:
       name: "&eMove Here"
       lore:

@@ -85,6 +85,11 @@ public final class DisplayEditor implements Listener {
         }
 
         switch (event.getRawSlot()) {
+            case 0 -> rotate(player, data, -plugin.getEditorRotationStepYaw(), 0.0D);
+            case 1 -> rotate(player, data, plugin.getEditorRotationStepYaw(), 0.0D);
+            case 2 -> rotate(player, data, 0.0D, -plugin.getEditorRotationStepPitch());
+            case 3 -> rotate(player, data, 0.0D, plugin.getEditorRotationStepPitch());
+            case 5 -> resetRotation(player, data);
             case 7 -> suggestMaterialEdit(player, data);
             case 10 -> teleport(player, data);
             case 12 -> moveHere(player, data);
@@ -103,6 +108,7 @@ public final class DisplayEditor implements Listener {
                     data.getViewRange() - plugin.getEditorViewRangeStep());
             case 33 -> setViewRange(player, data,
                     data.getViewRange() + plugin.getEditorViewRangeStep());
+            case 34 -> faceMe(player, data);
             case 35 -> player.closeInventory();
             default -> {
                 return;
@@ -124,9 +130,24 @@ public final class DisplayEditor implements Listener {
 
     private void populate(Inventory inventory, DisplayData data) {
         inventory.clear();
+        inventory.setItem(0, item(Material.ARROW,
+                plugin.getConfig().getString("editor.items.rotate-left.name", "&eRotate Left"),
+                rotationLore(), data));
+        inventory.setItem(1, item(Material.ARROW,
+                plugin.getConfig().getString("editor.items.rotate-right.name", "&eRotate Right"),
+                rotationLore(), data));
+        inventory.setItem(2, item(Material.ARROW,
+                plugin.getConfig().getString("editor.items.rotate-up.name", "&eRotate Up"),
+                rotationLore(), data));
+        inventory.setItem(3, item(Material.ARROW,
+                plugin.getConfig().getString("editor.items.rotate-down.name", "&eRotate Down"),
+                rotationLore(), data));
         inventory.setItem(4, item(Material.NAME_TAG,
                 plugin.getConfig().getString("editor.items.info.name", "&b%id%"),
                 plugin.getConfig().getStringList("editor.items.info.lore"), data));
+        inventory.setItem(5, item(Material.REDSTONE,
+                plugin.getConfig().getString("editor.items.rotation-reset.name", "&cReset Rotation"),
+                rotationLore(), data));
         inventory.setItem(6, item(Material.OAK_SIGN,
                 plugin.getConfig().getString("editor.items.type.name", "&bType: &f%type%"),
                 plugin.getConfig().getStringList("editor.items.type.lore"), data));
@@ -170,6 +191,10 @@ public final class DisplayEditor implements Listener {
                 List.of("&7Current: &f%view_range% blocks"), data));
         inventory.setItem(33, item(Material.SPYGLASS, "&bView Range +",
                 List.of("&7Current: &f%view_range% blocks"), data));
+        inventory.setItem(34, item(Material.PLAYER_HEAD,
+                plugin.getConfig().getString("editor.items.face-me.name", "&bFace Me"),
+                List.of("&7Match your current yaw/pitch.",
+                        "&7Yaw: &f%yaw%", "&7Pitch: &f%pitch%"), data));
         inventory.setItem(35, item(Material.BARRIER,
                 plugin.getConfig().getString("editor.items.close.name", "&cClose"),
                 List.of(), data));
@@ -274,6 +299,38 @@ public final class DisplayEditor implements Listener {
                 + "' view range to " + round(clamped) + " blocks."));
     }
 
+    private void rotate(Player player, DisplayData data, double yawDelta, double pitchDelta) {
+        data.setRawLocation(data.getWorld(), data.getX(), data.getY(), data.getZ(),
+                (float) (data.getYaw() + yawDelta), (float) (data.getPitch() + pitchDelta));
+        manager.saveAll();
+        manager.respawn(data);
+        player.sendMessage(TextUtil.success("Rotated display '" + data.getId() + "'."));
+    }
+
+    private void resetRotation(Player player, DisplayData data) {
+        data.setRawLocation(data.getWorld(), data.getX(), data.getY(), data.getZ(), 0.0F, 0.0F);
+        manager.saveAll();
+        manager.respawn(data);
+        player.sendMessage(TextUtil.success("Reset rotation for display '" + data.getId() + "'."));
+    }
+
+    private void faceMe(Player player, DisplayData data) {
+        data.setRawLocation(data.getWorld(), data.getX(), data.getY(), data.getZ(),
+                player.getLocation().getYaw(), player.getLocation().getPitch());
+        manager.saveAll();
+        manager.respawn(data);
+        player.sendMessage(TextUtil.success("Display '" + data.getId()
+                + "' now matches your facing direction."));
+    }
+
+    private List<String> rotationLore() {
+        return List.of(
+                "&7Yaw: &f%yaw%",
+                "&7Pitch: &f%pitch%",
+                "&7Yaw step: &f%rotation_step_yaw%",
+                "&7Pitch step: &f%rotation_step_pitch%");
+    }
+
     private String format(String input, DisplayData data) {
         if (input == null) {
             return "";
@@ -283,6 +340,10 @@ public final class DisplayEditor implements Listener {
                 .replace("%world%", String.valueOf(data.getWorld()))
                 .replace("%type%", data.getType().name())
                 .replace("%material%", materialName(data))
+                .replace("%yaw%", round(data.getYaw()))
+                .replace("%pitch%", round(data.getPitch()))
+                .replace("%rotation_step_yaw%", round(plugin.getEditorRotationStepYaw()))
+                .replace("%rotation_step_pitch%", round(plugin.getEditorRotationStepPitch()))
                 .replace("%x%", round(data.getX()))
                 .replace("%y%", round(data.getY()))
                 .replace("%z%", round(data.getZ()))

@@ -68,6 +68,11 @@ public final class TemplateStorage {
         cfg.set(base + "interaction.cooldown-seconds", source.getInteractionCooldownSeconds());
         cfg.set(base + "interaction.actions.left", source.getInteractionLeftActions());
         cfg.set(base + "interaction.actions.right", source.getInteractionRightActions());
+        cfg.set(base + "yaw", (double) source.getYaw());
+        cfg.set(base + "pitch", (double) source.getPitch());
+        cfg.set(base + "rotation.auto.enabled", source.isAutoRotationEnabled());
+        cfg.set(base + "rotation.auto.yaw-per-second", source.getAutoYawPerSecond());
+        cfg.set(base + "rotation.auto.pitch-per-second", source.getAutoPitchPerSecond());
         cfg.set(base + "lines", source.getLines());
         saveFile(cfg);
     }
@@ -100,6 +105,14 @@ public final class TemplateStorage {
         target.setInteractionCooldownSeconds(readInt(sec, "interaction.cooldown-seconds", 1, 0, 86_400));
         target.setInteractionLeftActions(sec.getStringList("interaction.actions.left"));
         target.setInteractionRightActions(sec.getStringList("interaction.actions.right"));
+        target.setRawLocation(target.getWorld(), target.getX(), target.getY(), target.getZ(),
+                (float) readDouble(sec, "yaw", target.getYaw(), -360_000.0D, 360_000.0D),
+                (float) readDouble(sec, "pitch", target.getPitch(), -360_000.0D, 360_000.0D));
+        target.setAutoRotationEnabled(sec.getBoolean("rotation.auto.enabled", false));
+        target.setAutoYawPerSecond(readDouble(sec, "rotation.auto.yaw-per-second", 0.0D,
+                -10_000.0D, 10_000.0D));
+        target.setAutoPitchPerSecond(readDouble(sec, "rotation.auto.pitch-per-second", 0.0D,
+                -10_000.0D, 10_000.0D));
         List<String> lines = sec.getStringList("lines");
         if (!lines.isEmpty()) {
             target.setLines(lines);

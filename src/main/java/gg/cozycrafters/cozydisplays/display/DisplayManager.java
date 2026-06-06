@@ -281,13 +281,13 @@ public final class DisplayManager {
                 }
             }
             case ITEM -> {
-                ItemDisplay entity = world.spawn(base, ItemDisplay.class,
+                ItemDisplay entity = world.spawn(rotated(base, data), ItemDisplay.class,
                         e -> applyItemSettings(e, data));
                 ids.add(entity.getUniqueId());
                 logViewRange(data, 0, entity);
             }
             case BLOCK -> {
-                BlockDisplay entity = world.spawn(base, BlockDisplay.class,
+                BlockDisplay entity = world.spawn(rotated(base, data), BlockDisplay.class,
                         e -> applyBlockSettings(e, data));
                 ids.add(entity.getUniqueId());
                 logViewRange(data, 0, entity);
@@ -357,6 +357,11 @@ public final class DisplayManager {
                 new AxisAngle4f(0.0F, 0.0F, 0.0F, 1.0F)));
 
         entity.setPersistent(true);
+    }
+
+    private Location rotated(Location base, DisplayData data) {
+        return new Location(base.getWorld(), base.getX(), base.getY(), base.getZ(),
+                data.getYaw(), data.getPitch());
     }
 
     private void applyInteractionSettings(Interaction entity, DisplayData data) {
@@ -491,6 +496,29 @@ public final class DisplayManager {
             }
         }
         return false;
+    }
+
+    public void tickAutoRotations(double seconds, double maxDegreesPerSecond) {
+        for (DisplayData data : new ArrayList<>(displays.values())) {
+            if (!data.isEnabled() || !data.isAutoRotationEnabled()) {
+                continue;
+            }
+            double yawSpeed = clamp(data.getAutoYawPerSecond(),
+                    -maxDegreesPerSecond, maxDegreesPerSecond);
+            double pitchSpeed = clamp(data.getAutoPitchPerSecond(),
+                    -maxDegreesPerSecond, maxDegreesPerSecond);
+            if (yawSpeed == 0.0D && pitchSpeed == 0.0D) {
+                continue;
+            }
+            data.setRawLocation(data.getWorld(), data.getX(), data.getY(), data.getZ(),
+                    (float) (data.getYaw() + yawSpeed * seconds),
+                    (float) (data.getPitch() + pitchSpeed * seconds));
+            respawn(data);
+        }
+    }
+
+    private double clamp(double value, double min, double max) {
+        return Math.max(min, Math.min(max, value));
     }
 
     /* ---------------------------- despawn ------------------------------- */

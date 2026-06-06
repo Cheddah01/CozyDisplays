@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.8.1] - Display rotation controls
+
+- Added `/display rotate <id> <yaw> [pitch]` for absolute yaw/pitch rotation.
+- Added `/display rotateby <id> <yawDelta> [pitchDelta]` for relative
+  yaw/pitch rotation.
+- Added `/display face <id>` to match the executing player's facing direction.
+- Added optional yaw/pitch auto-rotation with `/display spin <id>
+  <yawPerSecond> [pitchPerSecond]` and `/display spin stop <id>`.
+- Added one central auto-rotation scheduler with configurable update interval
+  and max degrees-per-second clamp.
+- Extended the editor GUI with rotate left/right, rotate up/down, reset
+  rotation, and face-me controls.
+- Extended storage, templates, clone behavior, and audit reporting for
+  rotation/auto-rotation fields.
+- Added config defaults for editor rotation steps and auto-rotation limits.
+- Bumped the plugin version to `1.8.1`.
+- Roll support was intentionally skipped for this patch to avoid a broad
+  display transformation rewrite.
+
 ## [1.8.0] - Interactive display types
 
 - Added display types: `TEXT`, `ITEM`, and `BLOCK`; existing saved displays
