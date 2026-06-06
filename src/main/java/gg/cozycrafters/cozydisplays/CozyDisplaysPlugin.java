@@ -23,8 +23,8 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
     private PlaceholderService placeholders;
     private BukkitTask refreshTask;
     private BukkitTask autoRotationTask;
-    private int refreshSeconds;
-    private int refreshMinimumIntervalSeconds;
+    private int refreshCheckSeconds;
+    private int refreshMinimumIntervalMinutes;
     private double wallOffset;
     private double defaultViewRange;
     private int entityWarningThreshold;
@@ -121,8 +121,10 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
     /* --------------------- placeholder refresh task --------------------- */
 
     private void applyRefreshConfig() {
-        this.refreshSeconds = readInt("placeholder-refresh-seconds", 30, 0, 86_400);
-        this.refreshMinimumIntervalSeconds = readInt("refresh.minimum-interval-seconds", 2, 1, 86_400);
+        this.refreshCheckSeconds = getConfig().contains("placeholder-refresh-seconds")
+                ? readInt("placeholder-refresh-seconds", 60, 0, 86_400) : 60;
+        this.refreshMinimumIntervalMinutes = readRefreshMinutes(
+                "refresh.minimum-interval-minutes", "refresh.minimum-interval-seconds", 1);
         this.wallOffset = readDouble("wall-offset", 0.03D, 0.001D, 1.0D);
         this.defaultViewRange = readDouble("default-view-range", 12.0D, 1.0D, 64.0D);
         this.entityWarningThreshold = readInt("display-entity-warning-threshold", 50, 1, 10_000);
@@ -158,19 +160,19 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
             getLogger().info("Placeholder refresh task not started: PlaceholderAPI not enabled.");
             return;
         }
-        if (refreshSeconds <= 0) {
+        if (refreshCheckSeconds <= 0) {
             getLogger().info("Placeholder refresh task not started: "
-                    + "placeholder-refresh-seconds is " + refreshSeconds + " (disabled).");
+                    + "placeholder-refresh-seconds is " + refreshCheckSeconds + " (disabled).");
             return;
         }
-        int tickSeconds = Math.min(refreshSeconds, refreshMinimumIntervalSeconds);
-        long ticks = tickSeconds * 20L;
+        long ticks = Math.max(20L, refreshCheckSeconds * 20L);
         this.refreshTask = getServer().getScheduler()
                 .runTaskTimer(this, manager::refreshAll, ticks, ticks);
-        getLogger().info("Placeholder refresh task started: tick interval=" + tickSeconds
+        getLogger().info("Placeholder refresh task started: check interval=" + refreshCheckSeconds
                 + "s, default display interval="
-                + getConfig().getInt("refresh.default-interval-seconds", 10)
-                + "s, PlaceholderAPI=enabled, tracked displays="
+                + readRefreshMinutes("refresh.default-interval-minutes",
+                        "refresh.default-interval-seconds", 5)
+                + "m, PlaceholderAPI=enabled, tracked displays="
                 + manager.getTrackedDisplayCount() + ".");
     }
 
@@ -289,12 +291,35 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
         if (!placeholders.isEnabled()) {
             return "PlaceholderAPI not installed; placeholders are shown as raw text.";
         }
-        if (refreshSeconds <= 0) {
+        if (refreshCheckSeconds <= 0) {
             return "PlaceholderAPI refresh: disabled (placeholder-refresh-seconds <= 0).";
         }
         return "PlaceholderAPI refresh: enabled; scheduler checks every "
-                + Math.min(refreshSeconds, refreshMinimumIntervalSeconds)
-                + "s with per-display intervals.";
+                + refreshCheckSeconds + "s with per-display minute intervals.";
+    }
+
+    public int getRefreshMinimumIntervalMinutes() {
+        return refreshMinimumIntervalMinutes;
+    }
+
+    private int readRefreshMinutes(String minutesPath, String secondsPath, int fallback) {
+        int value;
+        if (getConfig().contains(minutesPath)) {
+            value = getConfig().getInt(minutesPath, fallback);
+        } else if (getConfig().contains(secondsPath)) {
+            value = Math.max(1, (int) Math.ceil(getConfig().getInt(secondsPath, fallback * 60) / 60.0D));
+        } else {
+            value = fallback;
+        }
+        if (value < 1) {
+            getLogger().warning(minutesPath + " is below 1; using 1.");
+            return 1;
+        }
+        if (value > 1_440) {
+            getLogger().warning(minutesPath + " is above 1440; using 1440.");
+            return 1_440;
+        }
+        return value;
     }
 
     private int readInt(String path, int fallback, int min, int max) {

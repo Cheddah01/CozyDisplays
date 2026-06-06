@@ -401,14 +401,19 @@ public final class DisplayManager {
     public void refreshAll() {
         List<DisplayData> all = new ArrayList<>(displays.values());
         int changed = 0;
+        int checked = 0;
         for (DisplayData data : all) {
+            if (!data.isRefreshEnabled()) {
+                continue;
+            }
+            checked++;
             if (refresh(data, false)) {
                 changed++;
             }
         }
         if (debug) {
             plugin.getLogger().info("[debug] placeholder refresh tick: "
-                    + all.size() + " display(s) checked, " + changed + " updated.");
+                    + checked + " refresh-enabled display(s) checked, " + changed + " updated.");
         }
     }
 
@@ -477,7 +482,7 @@ public final class DisplayManager {
     private boolean isRefreshDue(DisplayData data) {
         long now = System.currentTimeMillis();
         long last = lastRefreshRun.getOrDefault(data.getId(), 0L);
-        long intervalMillis = Math.max(1L, data.getRefreshIntervalSeconds()) * 1000L;
+        long intervalMillis = Math.max(1L, data.getRefreshIntervalMinutes()) * 60_000L;
         return now - last >= intervalMillis;
     }
 

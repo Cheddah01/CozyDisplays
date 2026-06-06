@@ -34,10 +34,11 @@ public final class DisplayData {
     private double scale = 1.0D;
     private double viewRange = 12.0D;
     private boolean enabled = true;
-    private boolean refreshEnabled = true;
-    private int refreshIntervalSeconds = 10;
+    private boolean refreshEnabled = false;
+    private int refreshIntervalMinutes = 5;
     private boolean refreshOnlyWhenViewed = true;
     private double refreshViewerRange = 32.0D;
+    private boolean deprecatedRefreshIntervalKey = false;
     private Material itemMaterial = Material.DIAMOND;
     private Material blockMaterial = Material.DIAMOND_BLOCK;
     private boolean interactionEnabled = false;
@@ -199,12 +200,12 @@ public final class DisplayData {
         this.refreshEnabled = refreshEnabled;
     }
 
-    public int getRefreshIntervalSeconds() {
-        return refreshIntervalSeconds;
+    public int getRefreshIntervalMinutes() {
+        return refreshIntervalMinutes;
     }
 
-    public void setRefreshIntervalSeconds(int refreshIntervalSeconds) {
-        this.refreshIntervalSeconds = refreshIntervalSeconds;
+    public void setRefreshIntervalMinutes(int refreshIntervalMinutes) {
+        this.refreshIntervalMinutes = refreshIntervalMinutes;
     }
 
     public boolean isRefreshOnlyWhenViewed() {
@@ -221,6 +222,14 @@ public final class DisplayData {
 
     public void setRefreshViewerRange(double refreshViewerRange) {
         this.refreshViewerRange = refreshViewerRange;
+    }
+
+    public boolean hasDeprecatedRefreshIntervalKey() {
+        return deprecatedRefreshIntervalKey;
+    }
+
+    public void setDeprecatedRefreshIntervalKey(boolean deprecatedRefreshIntervalKey) {
+        this.deprecatedRefreshIntervalKey = deprecatedRefreshIntervalKey;
     }
 
     public Material getItemMaterial() {
@@ -346,9 +355,10 @@ public final class DisplayData {
         copy.setViewRange(viewRange);
         copy.setEnabled(enabled);
         copy.setRefreshEnabled(refreshEnabled);
-        copy.setRefreshIntervalSeconds(refreshIntervalSeconds);
+        copy.setRefreshIntervalMinutes(refreshIntervalMinutes);
         copy.setRefreshOnlyWhenViewed(refreshOnlyWhenViewed);
         copy.setRefreshViewerRange(refreshViewerRange);
+        copy.setDeprecatedRefreshIntervalKey(deprecatedRefreshIntervalKey);
         copy.setItemMaterial(itemMaterial);
         copy.setBlockMaterial(blockMaterial);
         copy.setInteractionEnabled(interactionEnabled);

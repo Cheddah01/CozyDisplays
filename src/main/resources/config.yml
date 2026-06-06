@@ -1,17 +1,13 @@
 # CozyDisplays configuration
 
-# How often (in seconds) to re-resolve PlaceholderAPI placeholders on
-# spawned displays. Set to 0 (or less) to disable automatic refreshing.
-# Has no effect when PlaceholderAPI is not installed. When enabled, this is
-# the legacy global on/off interval; per-display refresh settings below decide
-# whether each display is due on a scheduler tick.
-placeholder-refresh-seconds: 30
-
-# Per-display PlaceholderAPI refresh defaults. Lower intervals can increase
-# PlaceholderAPI and entity respawn work on busy servers.
+# Per-display PlaceholderAPI refresh defaults. Automatic refresh is disabled
+# by default because frequent text respawns can cause client FPS drops near
+# busy signage. Manual refresh still works through /display refresh <id> and
+# the editor refresh button.
 refresh:
-  minimum-interval-seconds: 2
-  default-interval-seconds: 10
+  default-enabled: false
+  minimum-interval-minutes: 1
+  default-interval-minutes: 5
   default-only-when-viewed: true
   default-viewer-range: 32
 

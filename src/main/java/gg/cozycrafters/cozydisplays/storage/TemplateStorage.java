@@ -57,7 +57,7 @@ public final class TemplateStorage {
         cfg.set(base + "scale", source.getScale());
         cfg.set(base + "view-range", source.getViewRange());
         cfg.set(base + "refresh.enabled", source.isRefreshEnabled());
-        cfg.set(base + "refresh.interval-seconds", source.getRefreshIntervalSeconds());
+        cfg.set(base + "refresh.interval-minutes", source.getRefreshIntervalMinutes());
         cfg.set(base + "refresh.only-when-viewed", source.isRefreshOnlyWhenViewed());
         cfg.set(base + "refresh.viewer-range", source.getRefreshViewerRange());
         cfg.set(base + "item", source.getItemMaterial().name());
@@ -93,8 +93,8 @@ public final class TemplateStorage {
         target.setLineSpacing(readDouble(sec, "line-spacing", 0.28D, 0.05D, 2.0D));
         target.setScale(readDouble(sec, "scale", 1.0D, 0.1D, 10.0D));
         target.setViewRange(readDouble(sec, "view-range", 12.0D, 1.0D, 64.0D));
-        target.setRefreshEnabled(sec.getBoolean("refresh.enabled", true));
-        target.setRefreshIntervalSeconds(readInt(sec, "refresh.interval-seconds", 10, 1, 86_400));
+        target.setRefreshEnabled(sec.getBoolean("refresh.enabled", false));
+        target.setRefreshIntervalMinutes(readInt(sec, "refresh.interval-minutes", 5, 1, 1_440));
         target.setRefreshOnlyWhenViewed(sec.getBoolean("refresh.only-when-viewed", true));
         target.setRefreshViewerRange(readDouble(sec, "refresh.viewer-range", 32.0D, 1.0D, 256.0D));
         target.setItemMaterial(parseMaterial(sec.getString("item", "DIAMOND"), Material.DIAMOND));
@@ -186,8 +186,18 @@ public final class TemplateStorage {
     }
 
     private int readInt(ConfigurationSection sec, String path, int fallback, int min, int max) {
-        int value = sec.getInt(path, fallback);
+        int value;
+        if (path.endsWith("interval-minutes") && !sec.contains(path)
+                && sec.contains("refresh.interval-seconds")) {
+            value = secondsToMinutes(sec.getInt("refresh.interval-seconds", fallback * 60));
+        } else {
+            value = sec.getInt(path, fallback);
+        }
         return Math.max(min, Math.min(max, value));
+    }
+
+    private int secondsToMinutes(int seconds) {
+        return Math.max(1, (int) Math.ceil(seconds / 60.0D));
     }
 
     private double readDouble(ConfigurationSection sec, String path,

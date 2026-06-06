@@ -132,6 +132,11 @@ Rotate a display:
 | `/display interaction cooldown <id> <seconds>` | Set click cooldown per player/display/click type. |
 | `/display interaction add <id> <left\|right> <action>` | Add a left or right click action. |
 | `/display interaction clear <id> <left\|right\|all>` | Clear click actions. |
+| `/display refresh <id>` | Force a one-time placeholder/text refresh. |
+| `/display refresh enable <id>` | Enable automatic placeholder refresh for one display. |
+| `/display refresh disable <id>` | Disable automatic placeholder refresh for one display. |
+| `/display refresh interval <id> <minutes>` | Set one display's automatic refresh interval in minutes. |
+| `/display refresh status <id>` | Show one display's refresh settings. |
 | `/display template list` | List saved display templates. |
 | `/display template save <templateId> <displayId>` | Save a display's safe type/text/material/visual settings as a template. |
 | `/display template apply <templateId> <displayId>` | Apply a template without changing the target ID or location. |
@@ -172,7 +177,7 @@ compatibility. Placeholder refresh only applies to text displays.
 ## Rotation
 
 Displays store yaw and pitch and apply them to text, item, and block displays.
-Roll is intentionally not implemented in 1.8.1 because supporting it cleanly
+Roll is intentionally not implemented because supporting it cleanly
 would require a broader transformation rewrite.
 
 Auto-spin is disabled by default for existing and new displays. It uses one
@@ -222,7 +227,7 @@ admin configuration.
 
 ## PlaceholderAPI
 
-PlaceholderAPI is optional. If it is installed and enabled, CozyDisplays resolves placeholders in display lines on spawn and on the configured refresh interval. If PlaceholderAPI is missing, the plugin still starts normally and leaves placeholder text unchanged.
+PlaceholderAPI is optional. If it is installed and enabled, CozyDisplays resolves placeholders in display lines on spawn. Automatic periodic refresh is disabled by default; enable it only for displays that need live placeholder updates. Manual refresh through `/display refresh <id>` or the editor refresh button still works when automatic refresh is disabled. If PlaceholderAPI is missing, the plugin still starts normally and leaves placeholder text unchanged.
 
 Displays are world-bound and not rendered per player by CozyDisplays, so player-specific placeholders may resolve to PlaceholderAPI's global, default, or empty value.
 
@@ -231,15 +236,27 @@ Each display can now store refresh controls in `displays.yml`:
 ```yaml
 refresh:
   enabled: true
-  interval-seconds: 10
+  interval-minutes: 5
   only-when-viewed: true
   viewer-range: 32
 ```
 
 When `only-when-viewed` is true, CozyDisplays skips automatic refresh work unless
 at least one player is in the same world and within the display's viewer range.
-Lower intervals can make placeholders feel more responsive, but may increase
-PlaceholderAPI and entity respawn work on busy servers.
+Lower intervals can make placeholders feel more responsive, but frequent refresh
+can cause player FPS drops because changed text displays may need to respawn.
+
+Recommended settings:
+
+- Static displays: keep `refresh.enabled: false`.
+- Leaderboards/placeholders: use `refresh.enabled: true` with
+  `refresh.interval-minutes: 5` or higher.
+- Public areas: keep `refresh.only-when-viewed: true`.
+
+Old seconds-based keys such as `refresh.interval-seconds`,
+`refresh.default-interval-seconds`, and `refresh.minimum-interval-seconds` are
+deprecated. CozyDisplays still reads them as fallbacks and rounds them up to
+whole minutes, but new defaults and saves use minute-based keys.
 
 ## Configuration
 
@@ -247,9 +264,9 @@ PlaceholderAPI and entity respawn work on busy servers.
 
 | Key | Description |
 | --- | --- |
-| `placeholder-refresh-seconds` | Refresh interval for PlaceholderAPI text. Set to `0` to disable automatic refresh. |
-| `refresh.minimum-interval-seconds` | Safe lower bound for per-display refresh intervals. |
-| `refresh.default-interval-seconds` | Default refresh interval for new or older displays. |
+| `refresh.default-enabled` | Whether displays missing `refresh.enabled` automatically refresh. Defaults to `false`. |
+| `refresh.minimum-interval-minutes` | Safe lower bound for per-display refresh intervals. |
+| `refresh.default-interval-minutes` | Default refresh interval for new or older displays. |
 | `refresh.default-only-when-viewed` | Whether new or older displays refresh only near viewers. |
 | `refresh.default-viewer-range` | Default viewer range for refresh visibility checks. |
 | `nearby-default-radius` | Default radius for `/display nearby`. |

@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.8.2] - Refresh defaults performance patch
+
+- Disabled automatic PlaceholderAPI refresh by default for new and missing-key
+  displays.
+- Changed refresh configuration and saved display/template interval fields from
+  seconds to minutes.
+- Kept backwards-compatible reads for old seconds-based refresh keys and rounds
+  them up to whole minutes at load time.
+- Updated the central refresh scheduler to check at a low fixed cadence and
+  skip displays with automatic refresh disabled.
+- Added `/display refresh <id>` for manual one-time refresh plus
+  `/display refresh enable|disable|interval|status` for per-display refresh
+  management.
+- Extended `/display audit` with automatic refresh, aggressive interval,
+  deprecated key, and no-viewer-check counts.
+- Updated bundled config defaults, templates, README, and plugin version for
+  `1.8.2`.
+
 ## [1.8.1] - Display rotation controls
 
 - Added `/display rotate <id> <yaw> [pitch]` for absolute yaw/pitch rotation.

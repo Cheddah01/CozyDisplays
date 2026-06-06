@@ -45,7 +45,7 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             "scale", "viewrange", "viewrangeall", "enabled",
             "hide", "show", "info", "stats",
             "setitem", "setblock", "interaction",
-            "template", "delete", "list", "reload");
+            "refresh", "template", "delete", "list", "reload");
 
     private static final List<String> SCALE_SUGGESTIONS = List.of(
             "0.5", "0.75", "1.0", "1.25", "1.5", "2.0");
@@ -54,6 +54,9 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             "4.0", "8.0", "12.0", "16.0", "32.0", "64.0");
 
     private static final List<String> BOOL_SUGGESTIONS = List.of("true", "false");
+    private static final List<String> REFRESH_ACTIONS = List.of(
+            "enable", "disable", "interval", "status");
+    private static final List<String> REFRESH_INTERVAL_SUGGESTIONS = List.of("1", "5", "10", "15", "30");
 
     private static final double MIN_SCALE = 0.1D;
     private static final double MAX_SCALE = 10.0D;
@@ -125,6 +128,7 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             case "setitem" -> handleSetItem(sender, args);
             case "setblock" -> handleSetBlock(sender, args);
             case "interaction" -> handleInteraction(sender, args);
+            case "refresh" -> handleRefresh(sender, args);
             case "template" -> handleTemplate(sender, args);
             case "delete" -> handleDelete(sender, args);
             case "list" -> handleList(sender);
@@ -466,6 +470,10 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         int invalidMaterials = 0;
         int invalidRotation = 0;
         int autoRotating = 0;
+        int refreshEnabled = 0;
+        int refreshAggressive = 0;
+        int refreshDeprecated = 0;
+        int refreshAlways = 0;
         int invalid = 0;
         int text = 0;
         int item = 0;
@@ -495,11 +503,23 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             if (data.isAutoRotationEnabled()) {
                 autoRotating++;
             }
+            if (data.isRefreshEnabled()) {
+                refreshEnabled++;
+                if (!data.isRefreshOnlyWhenViewed()) {
+                    refreshAlways++;
+                }
+            }
+            if (data.getRefreshIntervalMinutes() < plugin.getRefreshMinimumIntervalMinutes()) {
+                refreshAggressive++;
+            }
+            if (data.hasDeprecatedRefreshIntervalKey()) {
+                refreshDeprecated++;
+            }
             if (!isFinite(data.getX()) || !isFinite(data.getY()) || !isFinite(data.getZ())
                     || !isFinite(data.getLineSpacing()) || !isFinite(data.getScale())
                     || !isFinite(data.getViewRange()) || !isFinite(data.getRefreshViewerRange())
                     || (data.getType() == DisplayType.TEXT && data.getLines().isEmpty())
-                    || data.getRefreshIntervalSeconds() < 1) {
+                    || data.getRefreshIntervalMinutes() < 1) {
                 invalid++;
             }
             if (data.isEnabled() && world != null && !manager.isFullySpawned(data)) {
@@ -523,6 +543,10 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(TextUtil.info("Invalid materials: " + invalidMaterials));
         sender.sendMessage(TextUtil.info("Auto-rotating displays: " + autoRotating));
         sender.sendMessage(TextUtil.info("Invalid rotation values: " + invalidRotation));
+        sender.sendMessage(TextUtil.info("Automatic refresh enabled: " + refreshEnabled));
+        sender.sendMessage(TextUtil.info("Aggressive refresh intervals: " + refreshAggressive));
+        sender.sendMessage(TextUtil.info("Deprecated refresh keys: " + refreshDeprecated));
+        sender.sendMessage(TextUtil.info("Refresh without viewer checks: " + refreshAlways));
         sender.sendMessage(TextUtil.info("Invalid entries: " + invalid));
         if (missingWorlds == 0 && missingEntities == 0 && missingInteractions == 0
                 && invalidMaterials == 0 && invalidRotation == 0
@@ -568,7 +592,7 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             return;
         }
         if (args.length >= 5) {
-            sender.sendMessage(TextUtil.info("Roll is not supported in CozyDisplays 1.8.1."));
+            sender.sendMessage(TextUtil.info("Roll is not supported in CozyDisplays 1.8.2."));
         }
         setRotation(data, yaw, pitch);
         manager.saveAll();
@@ -593,7 +617,7 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             return;
         }
         if (args.length >= 5) {
-            sender.sendMessage(TextUtil.info("Roll is not supported in CozyDisplays 1.8.1."));
+            sender.sendMessage(TextUtil.info("Roll is not supported in CozyDisplays 1.8.2."));
         }
         setRotation(data, data.getYaw() + yaw, data.getPitch() + pitch);
         manager.saveAll();
@@ -655,7 +679,7 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             return;
         }
         if (args.length >= 5) {
-            sender.sendMessage(TextUtil.info("Roll is not supported in CozyDisplays 1.8.1."));
+            sender.sendMessage(TextUtil.info("Roll is not supported in CozyDisplays 1.8.2."));
         }
         double max = plugin.getRotationMaxDegreesPerSecond();
         double clampedYaw = clamp(yaw, -max, max);
@@ -1011,7 +1035,7 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
                 + ", yaw " + data.getAutoYawPerSecond() + " deg/s"
                 + ", pitch " + data.getAutoPitchPerSecond() + " deg/s"));
         sender.sendMessage(TextUtil.info("Refresh: " + (data.isRefreshEnabled() ? "enabled" : "disabled")
-                + ", interval " + data.getRefreshIntervalSeconds() + "s"
+                + ", interval " + data.getRefreshIntervalMinutes() + "m"
                 + ", only when viewed: " + data.isRefreshOnlyWhenViewed()
                 + ", viewer range: " + data.getRefreshViewerRange() + " blocks"));
         sender.sendMessage(TextUtil.info("Interaction: " + (data.isInteractionEnabled() ? "enabled" : "disabled")
@@ -1235,6 +1259,100 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
                 + data.getId() + "'."));
     }
 
+    /* ----------------------------- refresh ----------------------------- */
+
+    private void handleRefresh(CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage(TextUtil.error("Usage: /display refresh <id>"));
+            sender.sendMessage(TextUtil.error("Usage: /display refresh <enable|disable|interval|status> ..."));
+            return;
+        }
+
+        String action = args[1].toLowerCase(Locale.ROOT);
+        switch (action) {
+            case "enable" -> {
+                if (args.length < 3) {
+                    sender.sendMessage(TextUtil.error("Usage: /display refresh enable <id>"));
+                    return;
+                }
+                DisplayData data = require(sender, args[2]);
+                if (data == null) {
+                    return;
+                }
+                data.setRefreshEnabled(true);
+                manager.saveAll();
+                sender.sendMessage(TextUtil.success("Automatic refresh enabled for display '"
+                        + data.getId() + "'."));
+            }
+            case "disable" -> {
+                if (args.length < 3) {
+                    sender.sendMessage(TextUtil.error("Usage: /display refresh disable <id>"));
+                    return;
+                }
+                DisplayData data = require(sender, args[2]);
+                if (data == null) {
+                    return;
+                }
+                data.setRefreshEnabled(false);
+                manager.saveAll();
+                sender.sendMessage(TextUtil.info("Automatic refresh disabled for display '"
+                        + data.getId() + "'."));
+            }
+            case "interval" -> {
+                if (args.length < 4) {
+                    sender.sendMessage(TextUtil.error("Usage: /display refresh interval <id> <minutes>"));
+                    return;
+                }
+                DisplayData data = require(sender, args[2]);
+                if (data == null) {
+                    return;
+                }
+                Integer minutes = parsePositiveInt(sender, args[3],
+                        "Refresh interval must be a positive number of minutes.");
+                if (minutes == null) {
+                    return;
+                }
+                int minimum = plugin.getRefreshMinimumIntervalMinutes();
+                if (minutes < minimum) {
+                    minutes = minimum;
+                    sender.sendMessage(TextUtil.info("Refresh interval was raised to the minimum of "
+                            + minimum + " minutes."));
+                }
+                data.setRefreshIntervalMinutes(minutes);
+                manager.saveAll();
+                sender.sendMessage(TextUtil.success("Refresh interval for '" + data.getId()
+                        + "' set to " + minutes + " minutes."));
+            }
+            case "status" -> {
+                if (args.length < 3) {
+                    sender.sendMessage(TextUtil.error("Usage: /display refresh status <id>"));
+                    return;
+                }
+                DisplayData data = require(sender, args[2]);
+                if (data == null) {
+                    return;
+                }
+                sender.sendMessage(TextUtil.info("Refresh for " + data.getId()
+                        + ": enabled=" + data.isRefreshEnabled()
+                        + ", interval=" + data.getRefreshIntervalMinutes() + "m"
+                        + ", only-when-viewed=" + data.isRefreshOnlyWhenViewed()
+                        + ", viewer-range=" + data.getRefreshViewerRange() + "."));
+            }
+            default -> {
+                DisplayData data = require(sender, args[1]);
+                if (data == null) {
+                    return;
+                }
+                manager.forceRefresh(data);
+                sender.sendMessage(TextUtil.success("Refreshed display '" + data.getId() + "'."));
+                if (!data.isRefreshEnabled()) {
+                    sender.sendMessage(TextUtil.info("Automatic refresh is disabled for display '"
+                            + data.getId() + "'."));
+                }
+            }
+        }
+    }
+
     /* ----------------------------- template ---------------------------- */
 
     private void handleTemplate(CommandSender sender, String[] args) {
@@ -1384,6 +1502,20 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         return line;
     }
 
+    private Integer parsePositiveInt(CommandSender sender, String raw, String errorMessage) {
+        try {
+            int value = Integer.parseInt(raw);
+            if (value < 1) {
+                sender.sendMessage(TextUtil.error(errorMessage));
+                return null;
+            }
+            return value;
+        } catch (NumberFormatException ex) {
+            sender.sendMessage(TextUtil.error(errorMessage));
+            return null;
+        }
+    }
+
     private String join(String[] args, int from) {
         return String.join(" ", Arrays.copyOfRange(args, from, args.length)).trim();
     }
@@ -1421,6 +1553,8 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(TextUtil.info(" /display setitem <id> <material>"));
         sender.sendMessage(TextUtil.info(" /display setblock <id> <material>"));
         sender.sendMessage(TextUtil.info(" /display interaction <enable|disable|size|cooldown|add|clear> ..."));
+        sender.sendMessage(TextUtil.info(" /display refresh <id> - Force a one-time refresh."));
+        sender.sendMessage(TextUtil.info(" /display refresh <enable|disable|interval|status> ..."));
         sender.sendMessage(TextUtil.info(" /display template <list|save|apply> ..."));
         sender.sendMessage(TextUtil.info(" /display delete <id>"));
         sender.sendMessage(TextUtil.info(" /display list"));
@@ -1484,6 +1618,20 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             }
             if (args.length == 5 && args[1].equalsIgnoreCase("add")) {
                 return filter(List.of("player:", "console:", "message:"), args[4]);
+            }
+        }
+
+        if (sub.equals("refresh")) {
+            if (args.length == 2) {
+                List<String> options = new ArrayList<>(manager.getDisplays().keySet());
+                options.addAll(REFRESH_ACTIONS);
+                return filter(options, args[1]);
+            }
+            if (args.length == 3 && REFRESH_ACTIONS.contains(args[1].toLowerCase(Locale.ROOT))) {
+                return filter(new ArrayList<>(manager.getDisplays().keySet()), args[2]);
+            }
+            if (args.length == 4 && args[1].equalsIgnoreCase("interval")) {
+                return filter(REFRESH_INTERVAL_SUGGESTIONS, args[3]);
             }
         }
 

@@ -88,9 +88,12 @@ public final class DisplayStorage {
         data.setViewRange(readDouble(id, sec, "view-range",
                 readDefaultViewRange(), 1.0D, 64.0D));
         data.setEnabled(sec.getBoolean("enabled", true));
-        data.setRefreshEnabled(sec.getBoolean("refresh.enabled", true));
-        data.setRefreshIntervalSeconds(readInt(id, sec, "refresh.interval-seconds",
-                readDefaultRefreshIntervalSeconds(), readMinimumRefreshIntervalSeconds(), 86_400));
+        data.setRefreshEnabled(sec.getBoolean("refresh.enabled",
+                plugin.getConfig().getBoolean("refresh.default-enabled", false)));
+        data.setRefreshIntervalMinutes(readInt(id, sec, "refresh.interval-minutes",
+                readDefaultRefreshIntervalMinutes(), readMinimumRefreshIntervalMinutes(), 1_440));
+        data.setDeprecatedRefreshIntervalKey(!sec.contains("refresh.interval-minutes")
+                && sec.contains("refresh.interval-seconds"));
         data.setRefreshOnlyWhenViewed(sec.getBoolean("refresh.only-when-viewed",
                 plugin.getConfig().getBoolean("refresh.default-only-when-viewed", true)));
         data.setRefreshViewerRange(readDouble(id, sec, "refresh.viewer-range",
@@ -144,7 +147,7 @@ public final class DisplayStorage {
             cfg.set(base + "view-range", d.getViewRange());
             cfg.set(base + "enabled", d.isEnabled());
             cfg.set(base + "refresh.enabled", d.isRefreshEnabled());
-            cfg.set(base + "refresh.interval-seconds", d.getRefreshIntervalSeconds());
+            cfg.set(base + "refresh.interval-minutes", d.getRefreshIntervalMinutes());
             cfg.set(base + "refresh.only-when-viewed", d.isRefreshOnlyWhenViewed());
             cfg.set(base + "refresh.viewer-range", d.getRefreshViewerRange());
             cfg.set(base + "item", d.getItemMaterial().name());
@@ -225,15 +228,27 @@ public final class DisplayStorage {
         return Math.max(1.0D, Math.min(64.0D, value));
     }
 
-    private int readDefaultRefreshIntervalSeconds() {
-        int minimum = readMinimumRefreshIntervalSeconds();
-        int value = plugin.getConfig().getInt("refresh.default-interval-seconds", 10);
-        return Math.max(minimum, Math.min(86_400, value));
+    private int readDefaultRefreshIntervalMinutes() {
+        int minimum = readMinimumRefreshIntervalMinutes();
+        int value = readConfigMinutes("refresh.default-interval-minutes",
+                "refresh.default-interval-seconds", 5);
+        return Math.max(minimum, Math.min(1_440, value));
     }
 
-    private int readMinimumRefreshIntervalSeconds() {
-        int value = plugin.getConfig().getInt("refresh.minimum-interval-seconds", 2);
-        return Math.max(1, Math.min(86_400, value));
+    private int readMinimumRefreshIntervalMinutes() {
+        int value = readConfigMinutes("refresh.minimum-interval-minutes",
+                "refresh.minimum-interval-seconds", 1);
+        return Math.max(1, Math.min(1_440, value));
+    }
+
+    private int readConfigMinutes(String minutesPath, String secondsPath, int fallback) {
+        if (plugin.getConfig().contains(minutesPath)) {
+            return plugin.getConfig().getInt(minutesPath, fallback);
+        }
+        if (plugin.getConfig().contains(secondsPath)) {
+            return secondsToMinutes(plugin.getConfig().getInt(secondsPath, fallback * 60));
+        }
+        return fallback;
     }
 
     private double readDefaultRefreshViewerRange() {
@@ -269,7 +284,13 @@ public final class DisplayStorage {
 
     private int readInt(String id, ConfigurationSection sec, String path,
                         int fallback, int min, int max) {
-        int value = sec.getInt(path, fallback);
+        int value;
+        if (path.endsWith("interval-minutes") && !sec.contains(path)
+                && sec.contains("refresh.interval-seconds")) {
+            value = secondsToMinutes(sec.getInt("refresh.interval-seconds", fallback * 60));
+        } else {
+            value = sec.getInt(path, fallback);
+        }
         if (value < min) {
             plugin.getLogger().warning("Display '" + id + "' has " + path
                     + " below " + min + "; using " + min + ".");
@@ -281,6 +302,10 @@ public final class DisplayStorage {
             return max;
         }
         return value;
+    }
+
+    private int secondsToMinutes(int seconds) {
+        return Math.max(1, (int) Math.ceil(seconds / 60.0D));
     }
 
     private double readDouble(String id, ConfigurationSection sec, String path,
