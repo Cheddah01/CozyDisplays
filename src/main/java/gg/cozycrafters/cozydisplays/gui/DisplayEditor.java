@@ -1,0 +1,272 @@
+package gg.cozycrafters.cozydisplays.gui;
+
+import gg.cozycrafters.cozydisplays.CozyDisplaysPlugin;
+import gg.cozycrafters.cozydisplays.display.DisplayData;
+import gg.cozycrafters.cozydisplays.display.DisplayManager;
+import gg.cozycrafters.cozydisplays.util.TextUtil;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public final class DisplayEditor implements Listener {
+
+    private static final int SIZE = 36;
+    private static final double MIN_SCALE = 0.1D;
+    private static final double MAX_SCALE = 10.0D;
+    private static final double MIN_VIEW_RANGE = 1.0D;
+    private static final double MAX_VIEW_RANGE = 64.0D;
+
+    private final CozyDisplaysPlugin plugin;
+    private final DisplayManager manager;
+
+    public DisplayEditor(CozyDisplaysPlugin plugin, DisplayManager manager) {
+        this.plugin = plugin;
+        this.manager = manager;
+    }
+
+    public void open(Player player, String id) {
+        DisplayData data = manager.get(id);
+        if (data == null) {
+            player.sendMessage(TextUtil.error("Display '" + id + "' no longer exists."));
+            return;
+        }
+
+        Inventory inventory = Bukkit.createInventory(new EditorHolder(id), SIZE,
+                TextUtil.legacy(format(plugin.getConfig().getString(
+                        "editor.title", "&8Display Editor: %id%"), data)));
+        populate(inventory, data);
+        player.openInventory(inventory);
+        player.sendMessage(TextUtil.success("Opened editor for '" + id + "'."));
+    }
+
+    public void closeAll() {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            Inventory top = player.getOpenInventory().getTopInventory();
+            if (top.getHolder() instanceof EditorHolder) {
+                player.closeInventory();
+            }
+        }
+    }
+
+    @EventHandler
+    public void onClick(InventoryClickEvent event) {
+        Inventory top = event.getView().getTopInventory();
+        if (!(top.getHolder() instanceof EditorHolder holder)) {
+            return;
+        }
+        event.setCancelled(true);
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+        if (event.getRawSlot() < 0 || event.getRawSlot() >= top.getSize()) {
+            return;
+        }
+
+        DisplayData data = manager.get(holder.id());
+        if (data == null) {
+            player.closeInventory();
+            player.sendMessage(TextUtil.error("Display '" + holder.id() + "' no longer exists."));
+            return;
+        }
+
+        switch (event.getRawSlot()) {
+            case 10 -> teleport(player, data);
+            case 12 -> moveHere(player, data);
+            case 14 -> forceRefresh(player, data);
+            case 16 -> suggestClone(player, data);
+            case 19 -> nudge(player, data, -plugin.getEditorNudgeStep(), 0.0D, 0.0D);
+            case 20 -> nudge(player, data, plugin.getEditorNudgeStep(), 0.0D, 0.0D);
+            case 21 -> nudge(player, data, 0.0D, -plugin.getEditorNudgeStep(), 0.0D);
+            case 22 -> nudge(player, data, 0.0D, plugin.getEditorNudgeStep(), 0.0D);
+            case 23 -> nudge(player, data, 0.0D, 0.0D, -plugin.getEditorNudgeStep());
+            case 24 -> nudge(player, data, 0.0D, 0.0D, plugin.getEditorNudgeStep());
+            case 28 -> setScale(player, data, data.getScale() - plugin.getEditorScaleStep());
+            case 29 -> setScale(player, data, 1.0D);
+            case 30 -> setScale(player, data, data.getScale() + plugin.getEditorScaleStep());
+            case 32 -> setViewRange(player, data,
+                    data.getViewRange() - plugin.getEditorViewRangeStep());
+            case 33 -> setViewRange(player, data,
+                    data.getViewRange() + plugin.getEditorViewRangeStep());
+            case 35 -> player.closeInventory();
+            default -> {
+                return;
+            }
+        }
+
+        DisplayData updated = manager.get(holder.id());
+        if (updated != null && player.getOpenInventory().getTopInventory().getHolder() instanceof EditorHolder) {
+            populate(top, updated);
+        }
+    }
+
+    @EventHandler
+    public void onDrag(InventoryDragEvent event) {
+        if (event.getView().getTopInventory().getHolder() instanceof EditorHolder) {
+            event.setCancelled(true);
+        }
+    }
+
+    private void populate(Inventory inventory, DisplayData data) {
+        inventory.clear();
+        inventory.setItem(4, item(Material.NAME_TAG,
+                plugin.getConfig().getString("editor.items.info.name", "&b%id%"),
+                plugin.getConfig().getStringList("editor.items.info.lore"), data));
+        inventory.setItem(10, item(Material.ENDER_PEARL,
+                plugin.getConfig().getString("editor.items.teleport.name", "&aTeleport"),
+                plugin.getConfig().getStringList("editor.items.teleport.lore"), data));
+        inventory.setItem(12, item(Material.COMPASS,
+                plugin.getConfig().getString("editor.items.move-here.name", "&eMove Here"),
+                plugin.getConfig().getStringList("editor.items.move-here.lore"), data));
+        inventory.setItem(14, item(Material.CLOCK,
+                plugin.getConfig().getString("editor.items.refresh.name", "&bRefresh"),
+                plugin.getConfig().getStringList("editor.items.refresh.lore"), data));
+        inventory.setItem(16, item(Material.WRITABLE_BOOK,
+                plugin.getConfig().getString("editor.items.clone.name", "&dClone"),
+                plugin.getConfig().getStringList("editor.items.clone.lore"), data));
+
+        inventory.setItem(19, item(Material.RED_CONCRETE, "&c-X", List.of("&7Nudge by editor step."), data));
+        inventory.setItem(20, item(Material.LIME_CONCRETE, "&a+X", List.of("&7Nudge by editor step."), data));
+        inventory.setItem(21, item(Material.RED_CONCRETE, "&c-Y", List.of("&7Nudge by editor step."), data));
+        inventory.setItem(22, item(Material.LIME_CONCRETE, "&a+Y", List.of("&7Nudge by editor step."), data));
+        inventory.setItem(23, item(Material.RED_CONCRETE, "&c-Z", List.of("&7Nudge by editor step."), data));
+        inventory.setItem(24, item(Material.LIME_CONCRETE, "&a+Z", List.of("&7Nudge by editor step."), data));
+
+        inventory.setItem(28, item(Material.SMALL_AMETHYST_BUD, "&eScale -",
+                List.of("&7Current: &f%scale%"), data));
+        inventory.setItem(29, item(Material.AMETHYST_CLUSTER, "&eScale Reset",
+                List.of("&7Set scale to &f1.0&7."), data));
+        inventory.setItem(30, item(Material.LARGE_AMETHYST_BUD, "&eScale +",
+                List.of("&7Current: &f%scale%"), data));
+
+        inventory.setItem(32, item(Material.SPYGLASS, "&bView Range -",
+                List.of("&7Current: &f%view_range% blocks"), data));
+        inventory.setItem(33, item(Material.SPYGLASS, "&bView Range +",
+                List.of("&7Current: &f%view_range% blocks"), data));
+        inventory.setItem(35, item(Material.BARRIER,
+                plugin.getConfig().getString("editor.items.close.name", "&cClose"),
+                List.of(), data));
+    }
+
+    private ItemStack item(Material material, String name, List<String> lore, DisplayData data) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(TextUtil.legacy(format(name, data)));
+        List<Component> renderedLore = new ArrayList<>();
+        List<String> sourceLore = lore == null || lore.isEmpty() ? defaultLore(name) : lore;
+        for (String line : sourceLore) {
+            renderedLore.add(TextUtil.legacy(format(line, data)));
+        }
+        meta.lore(renderedLore);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private List<String> defaultLore(String name) {
+        if (name != null && name.contains("%id%")) {
+            return List.of("&7World: &f%world%", "&7Location: &f%x%, %y%, %z%");
+        }
+        return List.of();
+    }
+
+    private void teleport(Player player, DisplayData data) {
+        Location loc = data.toLocation();
+        if (loc == null) {
+            player.sendMessage(TextUtil.error("World '" + data.getWorld() + "' is not loaded."));
+            return;
+        }
+        player.teleport(loc);
+        player.sendMessage(TextUtil.success("Teleported to display '" + data.getId() + "'."));
+    }
+
+    private void moveHere(Player player, DisplayData data) {
+        data.setLocation(player.getLocation());
+        manager.saveAll();
+        manager.respawn(data);
+        player.sendMessage(TextUtil.success("Moved display '" + data.getId() + "' to your location."));
+    }
+
+    private void forceRefresh(Player player, DisplayData data) {
+        manager.forceRefresh(data);
+        player.sendMessage(TextUtil.success("Refreshed display '" + data.getId() + "'."));
+        if (!data.isRefreshEnabled()) {
+            player.sendMessage(TextUtil.info("Automatic refresh is disabled for display '"
+                    + data.getId() + "'."));
+        }
+    }
+
+    private void suggestClone(Player player, DisplayData data) {
+        player.closeInventory();
+        String command = "/display clone " + data.getId() + " new_id";
+        player.sendMessage(Component.text("Click to prepare clone command: ")
+                .append(Component.text(command)
+                        .clickEvent(ClickEvent.suggestCommand(command))
+                        .hoverEvent(HoverEvent.showText(Component.text("Suggest command")))));
+    }
+
+    private void nudge(Player player, DisplayData data, double dx, double dy, double dz) {
+        data.setRawLocation(data.getWorld(), data.getX() + dx, data.getY() + dy, data.getZ() + dz,
+                data.getYaw(), data.getPitch());
+        manager.saveAll();
+        manager.respawn(data);
+        player.sendMessage(TextUtil.success("Nudged display '" + data.getId() + "'."));
+    }
+
+    private void setScale(Player player, DisplayData data, double scale) {
+        double clamped = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
+        data.setScale(clamped);
+        manager.saveAll();
+        manager.respawn(data);
+        player.sendMessage(TextUtil.success("Set display '" + data.getId()
+                + "' scale to " + round(clamped) + "."));
+    }
+
+    private void setViewRange(Player player, DisplayData data, double range) {
+        double clamped = Math.max(MIN_VIEW_RANGE, Math.min(MAX_VIEW_RANGE, range));
+        data.setViewRange(clamped);
+        manager.saveAll();
+        manager.respawn(data);
+        player.sendMessage(TextUtil.success("Set display '" + data.getId()
+                + "' view range to " + round(clamped) + " blocks."));
+    }
+
+    private String format(String input, DisplayData data) {
+        if (input == null) {
+            return "";
+        }
+        return input
+                .replace("%id%", data.getId())
+                .replace("%world%", String.valueOf(data.getWorld()))
+                .replace("%x%", round(data.getX()))
+                .replace("%y%", round(data.getY()))
+                .replace("%z%", round(data.getZ()))
+                .replace("%scale%", round(data.getScale()))
+                .replace("%view_range%", round(data.getViewRange()));
+    }
+
+    private String round(double value) {
+        return String.format(java.util.Locale.ROOT, "%.2f", value);
+    }
+
+    private record EditorHolder(String id) implements InventoryHolder {
+
+        @Override
+        public Inventory getInventory() {
+            return null;
+        }
+    }
+}

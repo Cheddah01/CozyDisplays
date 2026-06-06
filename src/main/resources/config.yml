@@ -2,8 +2,22 @@
 
 # How often (in seconds) to re-resolve PlaceholderAPI placeholders on
 # spawned displays. Set to 0 (or less) to disable automatic refreshing.
-# Has no effect when PlaceholderAPI is not installed.
+# Has no effect when PlaceholderAPI is not installed. When enabled, this is
+# the legacy global on/off interval; per-display refresh settings below decide
+# whether each display is due on a scheduler tick.
 placeholder-refresh-seconds: 30
+
+# Per-display PlaceholderAPI refresh defaults. Lower intervals can increase
+# PlaceholderAPI and entity respawn work on busy servers.
+refresh:
+  minimum-interval-seconds: 2
+  default-interval-seconds: 10
+  default-only-when-viewed: true
+  default-viewer-range: 32
+
+# Default and maximum radius for /display nearby.
+nearby-default-radius: 25
+nearby-max-radius: 100
 
 # Distance the display is pushed out from a wall face by /display snapwall.
 # Too low z-fights with the block; too high floats off the wall.
@@ -30,3 +44,34 @@ debug-view-range: false
 # When true, logs a line on every placeholder refresh tick (displays checked
 # and how many were updated). Leave false in production.
 debug-placeholder-refresh: false
+
+# Basic admin editor GUI. Item names and lore support legacy & color codes.
+editor:
+  title: "&8Display Editor: %id%"
+  nudge-step: 0.1
+  scale-step: 0.1
+  view-range-step: 4
+  items:
+    info:
+      name: "&b%id%"
+      lore:
+        - "&7World: &f%world%"
+        - "&7Location: &f%x%, %y%, %z%"
+    teleport:
+      name: "&aTeleport"
+      lore:
+        - "&7Teleport to this display."
+    move-here:
+      name: "&eMove Here"
+      lore:
+        - "&7Move this display to your location."
+    refresh:
+      name: "&bRefresh"
+      lore:
+        - "&7Force placeholder/text refresh."
+    clone:
+      name: "&dClone"
+      lore:
+        - "&7Click to suggest clone command."
+    close:
+      name: "&cClose"

@@ -2,8 +2,10 @@ package gg.cozycrafters.cozydisplays;
 
 import gg.cozycrafters.cozydisplays.command.DisplayCommand;
 import gg.cozycrafters.cozydisplays.display.DisplayManager;
+import gg.cozycrafters.cozydisplays.gui.DisplayEditor;
 import gg.cozycrafters.cozydisplays.placeholder.PlaceholderService;
 import gg.cozycrafters.cozydisplays.storage.DisplayStorage;
+import gg.cozycrafters.cozydisplays.storage.TemplateStorage;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
@@ -16,13 +18,20 @@ import org.bukkit.scheduler.BukkitTask;
 public final class CozyDisplaysPlugin extends JavaPlugin {
 
     private DisplayManager manager;
+    private DisplayEditor editor;
     private PlaceholderService placeholders;
     private BukkitTask refreshTask;
     private int refreshSeconds;
+    private int refreshMinimumIntervalSeconds;
     private double wallOffset;
     private double defaultViewRange;
     private int entityWarningThreshold;
     private double defaultNudgeAmount;
+    private double nearbyDefaultRadius;
+    private double nearbyMaxRadius;
+    private double editorNudgeStep;
+    private double editorScaleStep;
+    private double editorViewRangeStep;
 
     @Override
     public void onEnable() {
@@ -33,6 +42,8 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
 
         DisplayStorage storage = new DisplayStorage(this);
         this.manager = new DisplayManager(this, storage, placeholders);
+        TemplateStorage templates = new TemplateStorage(this);
+        this.editor = new DisplayEditor(this, manager);
 
         applyRefreshConfig();
         manager.loadAndSpawnAll();
@@ -44,7 +55,9 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
-        DisplayCommand executor = new DisplayCommand(this, manager);
+        getServer().getPluginManager().registerEvents(editor, this);
+
+        DisplayCommand executor = new DisplayCommand(this, manager, editor, templates);
         command.setExecutor(executor);
         command.setTabCompleter(executor);
 
@@ -65,6 +78,9 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         stopPlaceholderRefreshTask();
+        if (editor != null) {
+            editor.closeAll();
+        }
         if (manager != null) {
             manager.despawnAll();
         }
@@ -75,6 +91,9 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
 
     /** Reloads config + storage, re-detects PlaceholderAPI, respawns displays. */
     public void reloadAll() {
+        if (editor != null) {
+            editor.closeAll();
+        }
         reloadConfig();
         placeholders.detect();
         applyRefreshConfig();
@@ -86,10 +105,20 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
 
     private void applyRefreshConfig() {
         this.refreshSeconds = readInt("placeholder-refresh-seconds", 30, 0, 86_400);
+        this.refreshMinimumIntervalSeconds = readInt("refresh.minimum-interval-seconds", 2, 1, 86_400);
         this.wallOffset = readDouble("wall-offset", 0.03D, 0.001D, 1.0D);
         this.defaultViewRange = readDouble("default-view-range", 12.0D, 1.0D, 64.0D);
         this.entityWarningThreshold = readInt("display-entity-warning-threshold", 50, 1, 10_000);
         this.defaultNudgeAmount = readDouble("default-nudge-amount", 0.05D, 0.001D, 5.0D);
+        this.nearbyDefaultRadius = readDouble("nearby-default-radius", 25.0D, 1.0D, 256.0D);
+        this.nearbyMaxRadius = readDouble("nearby-max-radius", 100.0D, 1.0D, 1_000.0D);
+        if (nearbyDefaultRadius > nearbyMaxRadius) {
+            getLogger().warning("nearby-default-radius is above nearby-max-radius; using max.");
+            nearbyDefaultRadius = nearbyMaxRadius;
+        }
+        this.editorNudgeStep = readDouble("editor.nudge-step", 0.1D, 0.001D, 5.0D);
+        this.editorScaleStep = readDouble("editor.scale-step", 0.1D, 0.01D, 5.0D);
+        this.editorViewRangeStep = readDouble("editor.view-range-step", 4.0D, 1.0D, 64.0D);
         manager.setDebug(getConfig().getBoolean("debug-placeholder-refresh", false));
         manager.setViewRangeDebug(getConfig().getBoolean("debug-view-range", false));
     }
@@ -105,10 +134,13 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
                     + "placeholder-refresh-seconds is " + refreshSeconds + " (disabled).");
             return;
         }
-        long ticks = refreshSeconds * 20L;
+        int tickSeconds = Math.min(refreshSeconds, refreshMinimumIntervalSeconds);
+        long ticks = tickSeconds * 20L;
         this.refreshTask = getServer().getScheduler()
                 .runTaskTimer(this, manager::refreshAll, ticks, ticks);
-        getLogger().info("Placeholder refresh task started: interval=" + refreshSeconds
+        getLogger().info("Placeholder refresh task started: tick interval=" + tickSeconds
+                + "s, default display interval="
+                + getConfig().getInt("refresh.default-interval-seconds", 10)
                 + "s, PlaceholderAPI=enabled, tracked displays="
                 + manager.getTrackedDisplayCount() + ".");
     }
@@ -134,6 +166,26 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
         return defaultNudgeAmount;
     }
 
+    public double getNearbyDefaultRadius() {
+        return nearbyDefaultRadius;
+    }
+
+    public double getNearbyMaxRadius() {
+        return nearbyMaxRadius;
+    }
+
+    public double getEditorNudgeStep() {
+        return editorNudgeStep;
+    }
+
+    public double getEditorScaleStep() {
+        return editorScaleStep;
+    }
+
+    public double getEditorViewRangeStep() {
+        return editorViewRangeStep;
+    }
+
     /** Default TextDisplay view range; falls back to 12.0 if invalid. */
     public double getDefaultViewRange() {
         return defaultViewRange;
@@ -156,7 +208,9 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
         if (refreshSeconds <= 0) {
             return "PlaceholderAPI refresh: disabled (placeholder-refresh-seconds <= 0).";
         }
-        return "PlaceholderAPI refresh: enabled every " + refreshSeconds + "s.";
+        return "PlaceholderAPI refresh: enabled; scheduler checks every "
+                + Math.min(refreshSeconds, refreshMinimumIntervalSeconds)
+                + "s with per-display intervals.";
     }
 
     private int readInt(String path, int fallback, int min, int max) {

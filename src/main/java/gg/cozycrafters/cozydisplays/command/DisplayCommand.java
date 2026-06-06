@@ -3,12 +3,18 @@ package gg.cozycrafters.cozydisplays.command;
 import gg.cozycrafters.cozydisplays.CozyDisplaysPlugin;
 import gg.cozycrafters.cozydisplays.display.DisplayData;
 import gg.cozycrafters.cozydisplays.display.DisplayManager;
+import gg.cozycrafters.cozydisplays.gui.DisplayEditor;
+import gg.cozycrafters.cozydisplays.storage.TemplateStorage;
 import gg.cozycrafters.cozydisplays.util.TextUtil;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
+import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
-import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
@@ -30,11 +36,12 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
     private static final String PERMISSION = "cozydisplays.admin";
     private static final List<String> SUBS = List.of(
             "create", "addline", "setline", "removeline",
-            "movehere", "snapwall", "nudge",
+            "movehere", "nearby", "clone", "audit", "edit",
+            "snapwall", "nudge",
             "up", "down", "left", "right", "forward", "back",
             "scale", "viewrange", "viewrangeall", "enabled",
             "hide", "show", "info", "stats",
-            "delete", "list", "reload");
+            "template", "delete", "list", "reload");
 
     private static final List<String> SCALE_SUGGESTIONS = List.of(
             "0.5", "0.75", "1.0", "1.25", "1.5", "2.0");
@@ -60,10 +67,15 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
 
     private final CozyDisplaysPlugin plugin;
     private final DisplayManager manager;
+    private final DisplayEditor editor;
+    private final TemplateStorage templates;
 
-    public DisplayCommand(CozyDisplaysPlugin plugin, DisplayManager manager) {
+    public DisplayCommand(CozyDisplaysPlugin plugin, DisplayManager manager,
+                          DisplayEditor editor, TemplateStorage templates) {
         this.plugin = plugin;
         this.manager = manager;
+        this.editor = editor;
+        this.templates = templates;
     }
 
     @Override
@@ -86,6 +98,10 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             case "setline" -> handleSetLine(sender, args);
             case "removeline" -> handleRemoveLine(sender, args);
             case "movehere" -> handleMoveHere(sender, args);
+            case "nearby" -> handleNearby(sender, args);
+            case "clone" -> handleClone(sender, args);
+            case "audit" -> handleAudit(sender);
+            case "edit" -> handleEdit(sender, args);
             case "snapwall" -> handleSnapWall(sender, args);
             case "nudge" -> handleNudge(sender, args);
             case "up", "down", "left", "right", "forward", "back" ->
@@ -98,6 +114,7 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             case "viewrangeall" -> handleViewRangeAll(sender, args);
             case "info" -> handleInfo(sender, args);
             case "stats" -> handleStats(sender);
+            case "template" -> handleTemplate(sender, args);
             case "delete" -> handleDelete(sender, args);
             case "list" -> handleList(sender);
             case "reload" -> handleReload(sender);
@@ -238,6 +255,158 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         manager.saveAll();
         manager.respawn(data);
         sender.sendMessage(TextUtil.success("Moved display '" + data.getId() + "' to your location."));
+    }
+
+    /* ----------------------------- nearby ------------------------------ */
+
+    private void handleNearby(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(TextUtil.error("Only players can use this command."));
+            return;
+        }
+
+        double radius = plugin.getNearbyDefaultRadius();
+        if (args.length >= 2) {
+            try {
+                radius = Double.parseDouble(args[1]);
+            } catch (NumberFormatException ex) {
+                sender.sendMessage(TextUtil.error("Radius must be a positive number."));
+                return;
+            }
+            if (Double.isNaN(radius) || Double.isInfinite(radius) || radius <= 0.0D) {
+                sender.sendMessage(TextUtil.error("Radius must be a positive number."));
+                return;
+            }
+        }
+        if (radius > plugin.getNearbyMaxRadius()) {
+            radius = plugin.getNearbyMaxRadius();
+            sender.sendMessage(TextUtil.info("Radius was capped at " + round(radius) + " blocks."));
+        }
+
+        Location origin = player.getLocation();
+        double radiusSquared = radius * radius;
+        List<NearbyDisplay> nearby = new ArrayList<>();
+        for (DisplayData data : manager.getDisplays().values()) {
+            Location loc = data.toLocation();
+            if (loc == null || !loc.getWorld().equals(origin.getWorld())) {
+                continue;
+            }
+            double distanceSquared = loc.distanceSquared(origin);
+            if (distanceSquared <= radiusSquared) {
+                nearby.add(new NearbyDisplay(data, loc, Math.sqrt(distanceSquared)));
+            }
+        }
+        nearby.sort(java.util.Comparator.comparingDouble(NearbyDisplay::distance));
+
+        if (nearby.isEmpty()) {
+            sender.sendMessage(TextUtil.error("No CozyDisplays found nearby."));
+            return;
+        }
+
+        sender.sendMessage(TextUtil.info("Nearby displays within " + round(radius) + " blocks:"));
+        for (NearbyDisplay entry : nearby) {
+            DisplayData data = entry.data();
+            Location loc = entry.location();
+            String line = "- " + data.getId() + " (" + round(entry.distance()) + "m) at "
+                    + round(loc.getX()) + ", " + round(loc.getY()) + ", " + round(loc.getZ());
+            String preview = data.getLines().isEmpty() ? "" : data.getLines().getFirst();
+            Component hover = Component.text("World: " + data.getWorld()
+                    + "\nX/Y/Z: " + round(loc.getX()) + ", " + round(loc.getY()) + ", " + round(loc.getZ())
+                    + "\nText: " + preview);
+            player.sendMessage(Component.text(line)
+                    .clickEvent(ClickEvent.suggestCommand("/display edit " + data.getId()))
+                    .hoverEvent(HoverEvent.showText(hover)));
+        }
+    }
+
+    /* ------------------------------ clone ------------------------------ */
+
+    private void handleClone(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(TextUtil.error("Only players can use this command."));
+            return;
+        }
+        if (args.length < 3) {
+            sender.sendMessage(TextUtil.error("Usage: /display clone <sourceId> <newId>"));
+            return;
+        }
+        DisplayData source = require(sender, args[1]);
+        if (source == null) {
+            return;
+        }
+        String targetId = args[2];
+        if (!isValidNewId(targetId)) {
+            sender.sendMessage(TextUtil.error("Display id must be 1-64 characters: letters, numbers, _ or -."));
+            return;
+        }
+        if (manager.exists(targetId)) {
+            sender.sendMessage(TextUtil.error("Display '" + targetId + "' already exists."));
+            return;
+        }
+
+        DisplayData clone = source.copyAs(targetId);
+        clone.setLocation(player.getLocation());
+        manager.put(clone);
+        manager.saveAll();
+        manager.respawn(clone);
+        sender.sendMessage(TextUtil.success("Cloned display '" + source.getId()
+                + "' to '" + targetId + "'."));
+    }
+
+    /* ------------------------------ audit ------------------------------ */
+
+    private void handleAudit(CommandSender sender) {
+        int total = manager.getDisplays().size();
+        int loaded = manager.getFullySpawnedDisplayCount();
+        int missingWorlds = 0;
+        int missingEntities = 0;
+        int invalid = 0;
+
+        for (DisplayData data : manager.getDisplays().values()) {
+            World world = org.bukkit.Bukkit.getWorld(data.getWorld());
+            if (world == null) {
+                missingWorlds++;
+            }
+            if (!isFinite(data.getX()) || !isFinite(data.getY()) || !isFinite(data.getZ())
+                    || !isFinite(data.getLineSpacing()) || !isFinite(data.getScale())
+                    || !isFinite(data.getViewRange()) || !isFinite(data.getRefreshViewerRange())
+                    || data.getLines().isEmpty()
+                    || data.getRefreshIntervalSeconds() < 1) {
+                invalid++;
+            }
+            if (data.isEnabled() && world != null && !manager.isFullySpawned(data)) {
+                missingEntities++;
+            }
+        }
+
+        sender.sendMessage(TextUtil.info("CozyDisplays Audit"));
+        sender.sendMessage(TextUtil.info("Total displays: " + total));
+        sender.sendMessage(TextUtil.info("Loaded/spawned: " + loaded));
+        sender.sendMessage(TextUtil.info("Missing worlds: " + missingWorlds));
+        sender.sendMessage(TextUtil.info("Missing entities: " + missingEntities));
+        sender.sendMessage(TextUtil.info("Invalid entries: " + invalid));
+        if (missingWorlds == 0 && missingEntities == 0 && invalid == 0) {
+            sender.sendMessage(TextUtil.success("No issues found."));
+        } else {
+            sender.sendMessage(TextUtil.info("Use /display reload to respawn missing valid displays."));
+        }
+    }
+
+    /* ------------------------------- edit ------------------------------ */
+
+    private void handleEdit(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(TextUtil.error("Only players can use this command."));
+            return;
+        }
+        if (args.length < 2) {
+            sender.sendMessage(TextUtil.error("Usage: /display edit <id>"));
+            return;
+        }
+        if (require(sender, args[1]) == null) {
+            return;
+        }
+        editor.open(player, args[1]);
     }
 
     /* ---------------------------- snapwall ------------------------------ */
@@ -566,6 +735,10 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(TextUtil.info("Location: " + data.getWorld() + " "
                 + data.getX() + " " + data.getY() + " " + data.getZ()));
         sender.sendMessage(TextUtil.info("Yaw/Pitch: " + data.getYaw() + " / " + data.getPitch()));
+        sender.sendMessage(TextUtil.info("Refresh: " + (data.isRefreshEnabled() ? "enabled" : "disabled")
+                + ", interval " + data.getRefreshIntervalSeconds() + "s"
+                + ", only when viewed: " + data.isRefreshOnlyWhenViewed()
+                + ", viewer range: " + data.getRefreshViewerRange() + " blocks"));
         sender.sendMessage(TextUtil.info("Placeholders: "
                 + (plugin.isPlaceholdersEnabled() ? "enabled" : "not installed")));
     }
@@ -582,6 +755,76 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(TextUtil.info("Default view range: "
                 + plugin.getDefaultViewRange() + " blocks."));
         sender.sendMessage(TextUtil.info(plugin.refreshStatus()));
+    }
+
+    /* ----------------------------- template ---------------------------- */
+
+    private void handleTemplate(CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage(TextUtil.error("Usage: /display template <list|save|apply> ..."));
+            return;
+        }
+
+        String action = args[1].toLowerCase(Locale.ROOT);
+        switch (action) {
+            case "list" -> {
+                List<String> ids = templates.listTemplateIds();
+                if (ids.isEmpty()) {
+                    sender.sendMessage(TextUtil.error("No display templates saved."));
+                    return;
+                }
+                sender.sendMessage(TextUtil.info("Display templates:"));
+                for (String id : ids) {
+                    sender.sendMessage(TextUtil.info(" - " + id));
+                }
+            }
+            case "save" -> {
+                if (args.length < 4) {
+                    sender.sendMessage(TextUtil.error("Usage: /display template save <templateId> <displayId>"));
+                    return;
+                }
+                String templateId = args[2];
+                if (!isValidNewId(templateId)) {
+                    sender.sendMessage(TextUtil.error("Template id must be 1-64 characters: letters, numbers, _ or -."));
+                    return;
+                }
+                if (templates.exists(templateId)) {
+                    sender.sendMessage(TextUtil.error("Template '" + templateId + "' already exists."));
+                    return;
+                }
+                DisplayData source = require(sender, args[3]);
+                if (source == null) {
+                    return;
+                }
+                templates.saveTemplate(templateId, source);
+                sender.sendMessage(TextUtil.success("Saved template '" + templateId
+                        + "' from display '" + source.getId() + "'."));
+            }
+            case "apply" -> {
+                if (args.length < 4) {
+                    sender.sendMessage(TextUtil.error("Usage: /display template apply <templateId> <displayId>"));
+                    return;
+                }
+                String templateId = args[2];
+                if (!templates.exists(templateId)) {
+                    sender.sendMessage(TextUtil.error("Template '" + templateId + "' does not exist."));
+                    return;
+                }
+                DisplayData target = require(sender, args[3]);
+                if (target == null) {
+                    return;
+                }
+                if (!templates.applyTemplate(templateId, target)) {
+                    sender.sendMessage(TextUtil.error("Template '" + templateId + "' does not exist."));
+                    return;
+                }
+                manager.saveAll();
+                manager.respawn(target);
+                sender.sendMessage(TextUtil.success("Applied template '" + templateId
+                        + "' to display '" + target.getId() + "'."));
+            }
+            default -> sender.sendMessage(TextUtil.error("Usage: /display template <list|save|apply> ..."));
+        }
     }
 
     /* ----------------------------- delete ------------------------------- */
@@ -674,6 +917,10 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(TextUtil.info(" /display setline <id> <lineNumber> <text...>"));
         sender.sendMessage(TextUtil.info(" /display removeline <id> <lineNumber>"));
         sender.sendMessage(TextUtil.info(" /display movehere <id>"));
+        sender.sendMessage(TextUtil.info(" /display nearby [radius] - List nearby displays in your world."));
+        sender.sendMessage(TextUtil.info(" /display clone <sourceId> <newId>"));
+        sender.sendMessage(TextUtil.info(" /display audit - Report display storage/spawn health."));
+        sender.sendMessage(TextUtil.info(" /display edit <id> - Open the admin editor GUI."));
         sender.sendMessage(TextUtil.info(" /display snapwall <id> - Center a display on the targeted wall face."));
         sender.sendMessage(TextUtil.info(" /display nudge <id> <up|down|left|right|forward|back> [amount]"));
         sender.sendMessage(TextUtil.info(" /display up|down|left|right|forward|back <id> [amount]"));
@@ -685,6 +932,7 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(TextUtil.info(" /display viewrangeall <range> - Set view range for all displays."));
         sender.sendMessage(TextUtil.info(" /display info <id> - Show a display's saved settings."));
         sender.sendMessage(TextUtil.info(" /display stats - Show display and render counts."));
+        sender.sendMessage(TextUtil.info(" /display template <list|save|apply> ..."));
         sender.sendMessage(TextUtil.info(" /display delete <id>"));
         sender.sendMessage(TextUtil.info(" /display list"));
         sender.sendMessage(TextUtil.info(" /display reload"));
@@ -707,6 +955,19 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
 
         if (args.length == 2 && needsId(sub)) {
             return filter(new ArrayList<>(manager.getDisplays().keySet()), args[1]);
+        }
+
+        if (sub.equals("template")) {
+            if (args.length == 2) {
+                return filter(List.of("list", "save", "apply"), args[1]);
+            }
+            if (args.length == 3 && args[1].equalsIgnoreCase("apply")) {
+                return filter(templates.listTemplateIds(), args[2]);
+            }
+            if (args.length == 4 && (args[1].equalsIgnoreCase("save")
+                    || args[1].equalsIgnoreCase("apply"))) {
+                return filter(new ArrayList<>(manager.getDisplays().keySet()), args[3]);
+            }
         }
 
         if (args.length == 3 && (sub.equals("setline") || sub.equals("removeline"))) {
@@ -757,9 +1018,20 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             case "addline", "setline", "removeline", "movehere", "snapwall",
                  "nudge", "up", "down", "left", "right", "forward", "back",
                  "scale", "viewrange", "enabled", "hide", "show", "info",
-                 "delete" -> true;
+                 "edit", "clone", "delete" -> true;
             default -> false;
         };
+    }
+
+    private boolean isFinite(double value) {
+        return !Double.isNaN(value) && !Double.isInfinite(value);
+    }
+
+    private String round(double value) {
+        return String.format(Locale.ROOT, "%.2f", value);
+    }
+
+    private record NearbyDisplay(DisplayData data, Location location, double distance) {
     }
 
     private List<String> filter(List<String> options, String prefix) {

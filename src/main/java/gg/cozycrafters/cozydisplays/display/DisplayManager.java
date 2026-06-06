@@ -9,6 +9,7 @@ import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
@@ -44,6 +45,8 @@ public final class DisplayManager {
     private final Map<String, List<UUID>> spawned = new LinkedHashMap<>();
     /** Display id -> last placeholder-resolved line strings (for change detection). */
     private final Map<String, List<String>> lastResolved = new LinkedHashMap<>();
+    /** Display id -> last automatic placeholder refresh timestamp in millis. */
+    private final Map<String, Long> lastRefreshRun = new LinkedHashMap<>();
 
     private boolean debug;
     private boolean viewRangeDebug;
@@ -84,6 +87,33 @@ public final class DisplayManager {
             total += ids.size();
         }
         return total;
+    }
+
+    public int getFullySpawnedDisplayCount() {
+        int total = 0;
+        for (DisplayData data : displays.values()) {
+            if (isFullySpawned(data)) {
+                total++;
+            }
+        }
+        return total;
+    }
+
+    public boolean isFullySpawned(DisplayData data) {
+        if (data == null || !data.isEnabled()) {
+            return false;
+        }
+        List<UUID> ids = spawned.get(data.getId());
+        if (ids == null || ids.size() != data.getLines().size()) {
+            return false;
+        }
+        for (UUID uuid : ids) {
+            Entity entity = Bukkit.getEntity(uuid);
+            if (!(entity instanceof TextDisplay) || !entity.isValid()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public int getTotalLineCount() {
@@ -141,6 +171,7 @@ public final class DisplayManager {
         cleanupOwnedEntities();
         spawned.clear();
         lastResolved.clear();
+        lastRefreshRun.clear();
         spawnAll();
     }
 
@@ -162,6 +193,7 @@ public final class DisplayManager {
         cleanupOwnedEntities();
         spawned.clear();
         lastResolved.clear();
+        lastRefreshRun.clear();
     }
 
     /* ----------------------------- spawn -------------------------------- */
@@ -183,6 +215,7 @@ public final class DisplayManager {
         if (!data.isEnabled()) {
             spawned.put(data.getId(), new ArrayList<>());
             lastResolved.put(data.getId(), resolveLines(data));
+            lastRefreshRun.put(data.getId(), System.currentTimeMillis());
             return;
         }
 
@@ -206,6 +239,7 @@ public final class DisplayManager {
         }
         spawned.put(data.getId(), ids);
         lastResolved.put(data.getId(), resolveLines(data));
+        lastRefreshRun.put(data.getId(), System.currentTimeMillis());
     }
 
     /** Placeholder-resolved (pre-color) strings for each saved line. */
@@ -258,7 +292,7 @@ public final class DisplayManager {
         List<DisplayData> all = new ArrayList<>(displays.values());
         int changed = 0;
         for (DisplayData data : all) {
-            if (refresh(data)) {
+            if (refresh(data, false)) {
                 changed++;
             }
         }
@@ -279,8 +313,28 @@ public final class DisplayManager {
      * @return true if the display was respawned/updated this tick.
      */
     public boolean refresh(DisplayData data) {
+        return refresh(data, false);
+    }
+
+    public boolean forceRefresh(DisplayData data) {
+        return refresh(data, true);
+    }
+
+    private boolean refresh(DisplayData data, boolean force) {
         if (!data.isEnabled()) {
             return false;
+        }
+        if (!force) {
+            if (!data.isRefreshEnabled()) {
+                return false;
+            }
+            if (!isRefreshDue(data)) {
+                return false;
+            }
+            if (data.isRefreshOnlyWhenViewed() && !hasNearbyViewer(data)) {
+                lastRefreshRun.put(data.getId(), System.currentTimeMillis());
+                return false;
+            }
         }
         List<UUID> ids = spawned.get(data.getId());
 
@@ -300,7 +354,33 @@ public final class DisplayManager {
 
         if (structurallyStale || textChanged) {
             respawn(data);
+            lastRefreshRun.put(data.getId(), System.currentTimeMillis());
             return true;
+        }
+        lastRefreshRun.put(data.getId(), System.currentTimeMillis());
+        return false;
+    }
+
+    private boolean isRefreshDue(DisplayData data) {
+        long now = System.currentTimeMillis();
+        long last = lastRefreshRun.getOrDefault(data.getId(), 0L);
+        long intervalMillis = Math.max(1L, data.getRefreshIntervalSeconds()) * 1000L;
+        return now - last >= intervalMillis;
+    }
+
+    private boolean hasNearbyViewer(DisplayData data) {
+        Location loc = data.toLocation();
+        if (loc == null || loc.getWorld() == null) {
+            return false;
+        }
+        double rangeSquared = data.getRefreshViewerRange() * data.getRefreshViewerRange();
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (!player.getWorld().equals(loc.getWorld())) {
+                continue;
+            }
+            if (player.getLocation().distanceSquared(loc) <= rangeSquared) {
+                return true;
+            }
         }
         return false;
     }
@@ -326,6 +406,7 @@ public final class DisplayManager {
         }
         spawned.remove(id);
         lastResolved.remove(id);
+        lastRefreshRun.remove(id);
     }
 
     /** Removes every plugin-owned text display in loaded worlds. */

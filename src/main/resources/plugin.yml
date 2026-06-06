@@ -9,7 +9,7 @@ softdepend: [PlaceholderAPI]
 commands:
   display:
     description: Manage CozyDisplays text holograms.
-    usage: /display <create|addline|setline|removeline|movehere|snapwall|nudge|up|down|left|right|forward|back|scale|viewrange|viewrangeall|enabled|hide|show|info|stats|delete|list|reload>
+    usage: /display <create|addline|setline|removeline|movehere|nearby|clone|audit|edit|snapwall|nudge|up|down|left|right|forward|back|scale|viewrange|viewrangeall|enabled|hide|show|info|stats|template|delete|list|reload>
     aliases: [cozydisplay]
     permission: cozydisplays.admin
     permission-message: You do not have permission to use CozyDisplays.

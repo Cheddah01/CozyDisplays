@@ -32,6 +32,10 @@ public final class DisplayData {
     private double scale = 1.0D;
     private double viewRange = 12.0D;
     private boolean enabled = true;
+    private boolean refreshEnabled = true;
+    private int refreshIntervalSeconds = 10;
+    private boolean refreshOnlyWhenViewed = true;
+    private double refreshViewerRange = 32.0D;
 
     private final List<String> lines = new ArrayList<>();
 
@@ -166,6 +170,38 @@ public final class DisplayData {
         this.enabled = enabled;
     }
 
+    public boolean isRefreshEnabled() {
+        return refreshEnabled;
+    }
+
+    public void setRefreshEnabled(boolean refreshEnabled) {
+        this.refreshEnabled = refreshEnabled;
+    }
+
+    public int getRefreshIntervalSeconds() {
+        return refreshIntervalSeconds;
+    }
+
+    public void setRefreshIntervalSeconds(int refreshIntervalSeconds) {
+        this.refreshIntervalSeconds = refreshIntervalSeconds;
+    }
+
+    public boolean isRefreshOnlyWhenViewed() {
+        return refreshOnlyWhenViewed;
+    }
+
+    public void setRefreshOnlyWhenViewed(boolean refreshOnlyWhenViewed) {
+        this.refreshOnlyWhenViewed = refreshOnlyWhenViewed;
+    }
+
+    public double getRefreshViewerRange() {
+        return refreshViewerRange;
+    }
+
+    public void setRefreshViewerRange(double refreshViewerRange) {
+        this.refreshViewerRange = refreshViewerRange;
+    }
+
     public List<String> getLines() {
         return lines;
     }
@@ -179,5 +215,25 @@ public final class DisplayData {
 
     public void addLine(String line) {
         lines.add(line);
+    }
+
+    public DisplayData copyAs(String newId) {
+        DisplayData copy = new DisplayData(newId);
+        copy.setRawLocation(world, x, y, z, yaw, pitch);
+        copy.setBillboard(billboard);
+        copy.setAlignment(alignment);
+        copy.setShadow(shadow);
+        copy.setSeeThrough(seeThrough);
+        copy.setBackground(background);
+        copy.setLineSpacing(lineSpacing);
+        copy.setScale(scale);
+        copy.setViewRange(viewRange);
+        copy.setEnabled(enabled);
+        copy.setRefreshEnabled(refreshEnabled);
+        copy.setRefreshIntervalSeconds(refreshIntervalSeconds);
+        copy.setRefreshOnlyWhenViewed(refreshOnlyWhenViewed);
+        copy.setRefreshViewerRange(refreshViewerRange);
+        copy.setLines(lines);
+        return copy;
     }
 }

@@ -85,6 +85,13 @@ public final class DisplayStorage {
         data.setViewRange(readDouble(id, sec, "view-range",
                 readDefaultViewRange(), 1.0D, 64.0D));
         data.setEnabled(sec.getBoolean("enabled", true));
+        data.setRefreshEnabled(sec.getBoolean("refresh.enabled", true));
+        data.setRefreshIntervalSeconds(readInt(id, sec, "refresh.interval-seconds",
+                readDefaultRefreshIntervalSeconds(), readMinimumRefreshIntervalSeconds(), 86_400));
+        data.setRefreshOnlyWhenViewed(sec.getBoolean("refresh.only-when-viewed",
+                plugin.getConfig().getBoolean("refresh.default-only-when-viewed", true)));
+        data.setRefreshViewerRange(readDouble(id, sec, "refresh.viewer-range",
+                readDefaultRefreshViewerRange(), 1.0D, 256.0D));
 
         List<String> lines = sec.getStringList("lines");
         data.setLines(lines);
@@ -112,6 +119,10 @@ public final class DisplayStorage {
             cfg.set(base + "scale", d.getScale());
             cfg.set(base + "view-range", d.getViewRange());
             cfg.set(base + "enabled", d.isEnabled());
+            cfg.set(base + "refresh.enabled", d.isRefreshEnabled());
+            cfg.set(base + "refresh.interval-seconds", d.getRefreshIntervalSeconds());
+            cfg.set(base + "refresh.only-when-viewed", d.isRefreshOnlyWhenViewed());
+            cfg.set(base + "refresh.viewer-range", d.getRefreshViewerRange());
             cfg.set(base + "lines", d.getLines());
         }
 
@@ -164,6 +175,41 @@ public final class DisplayStorage {
             return 12.0D;
         }
         return Math.max(1.0D, Math.min(64.0D, value));
+    }
+
+    private int readDefaultRefreshIntervalSeconds() {
+        int minimum = readMinimumRefreshIntervalSeconds();
+        int value = plugin.getConfig().getInt("refresh.default-interval-seconds", 10);
+        return Math.max(minimum, Math.min(86_400, value));
+    }
+
+    private int readMinimumRefreshIntervalSeconds() {
+        int value = plugin.getConfig().getInt("refresh.minimum-interval-seconds", 2);
+        return Math.max(1, Math.min(86_400, value));
+    }
+
+    private double readDefaultRefreshViewerRange() {
+        double value = plugin.getConfig().getDouble("refresh.default-viewer-range", 32.0D);
+        if (Double.isNaN(value) || Double.isInfinite(value)) {
+            return 32.0D;
+        }
+        return Math.max(1.0D, Math.min(256.0D, value));
+    }
+
+    private int readInt(String id, ConfigurationSection sec, String path,
+                        int fallback, int min, int max) {
+        int value = sec.getInt(path, fallback);
+        if (value < min) {
+            plugin.getLogger().warning("Display '" + id + "' has " + path
+                    + " below " + min + "; using " + min + ".");
+            return min;
+        }
+        if (value > max) {
+            plugin.getLogger().warning("Display '" + id + "' has " + path
+                    + " above " + max + "; using " + max + ".");
+            return max;
+        }
+        return value;
     }
 
     private double readDouble(String id, ConfigurationSection sec, String path,
