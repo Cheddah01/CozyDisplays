@@ -2,6 +2,7 @@ package gg.cozycrafters.cozydisplays.placeholder;
 
 import me.clip.placeholderapi.PlaceholderAPI;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 /**
@@ -40,6 +41,19 @@ public final class PlaceholderService {
             return PlaceholderAPI.setPlaceholders(null, input);
         } catch (Throwable t) {
             plugin.getLogger().warning("PlaceholderAPI failed to parse a display line: "
+                    + t.getMessage());
+            return input;
+        }
+    }
+
+    public String applyPlaceholders(Player player, String input) {
+        if (input == null || input.isEmpty() || !enabled) {
+            return input;
+        }
+        try {
+            return PlaceholderAPI.setPlaceholders(player, input);
+        } catch (Throwable t) {
+            plugin.getLogger().warning("PlaceholderAPI failed to parse a display action: "
                     + t.getMessage());
             return input;
         }

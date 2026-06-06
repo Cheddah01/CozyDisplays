@@ -19,6 +19,16 @@ refresh:
 nearby-default-radius: 25
 nearby-max-radius: 100
 
+# Optional clickable display actions. Existing displays are not clickable unless
+# interaction.enabled is true in displays.yml or via /display interaction enable.
+interaction:
+  default-width: 1.0
+  default-height: 1.0
+  default-cooldown-seconds: 1
+  max-width: 5.0
+  max-height: 5.0
+  max-cooldown-seconds: 60
+
 # Distance the display is pushed out from a wall face by /display snapwall.
 # Too low z-fights with the block; too high floats off the wall.
 wall-offset: 0.03
@@ -61,6 +71,18 @@ editor:
       name: "&aTeleport"
       lore:
         - "&7Teleport to this display."
+    type:
+      name: "&bType: &f%type%"
+      lore:
+        - "&7Display type for this entry."
+    item-material:
+      name: "&eItem: &f%material%"
+      lore:
+        - "&7Click to suggest setitem command."
+    block-material:
+      name: "&eBlock: &f%material%"
+      lore:
+        - "&7Click to suggest setblock command."
     move-here:
       name: "&eMove Here"
       lore:

@@ -6,7 +6,7 @@
 
     <groupId>gg.cozycrafters</groupId>
     <artifactId>CozyDisplays</artifactId>
-    <version>1.7.0</version>
+    <version>1.8.0</version>
     <packaging>jar</packaging>
 
     <properties>

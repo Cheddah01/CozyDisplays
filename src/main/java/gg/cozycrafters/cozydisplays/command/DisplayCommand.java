@@ -3,6 +3,7 @@ package gg.cozycrafters.cozydisplays.command;
 import gg.cozycrafters.cozydisplays.CozyDisplaysPlugin;
 import gg.cozycrafters.cozydisplays.display.DisplayData;
 import gg.cozycrafters.cozydisplays.display.DisplayManager;
+import gg.cozycrafters.cozydisplays.display.DisplayType;
 import gg.cozycrafters.cozydisplays.gui.DisplayEditor;
 import gg.cozycrafters.cozydisplays.storage.TemplateStorage;
 import gg.cozycrafters.cozydisplays.util.TextUtil;
@@ -10,6 +11,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -41,6 +43,7 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             "up", "down", "left", "right", "forward", "back",
             "scale", "viewrange", "viewrangeall", "enabled",
             "hide", "show", "info", "stats",
+            "setitem", "setblock", "interaction",
             "template", "delete", "list", "reload");
 
     private static final List<String> SCALE_SUGGESTIONS = List.of(
@@ -114,6 +117,9 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             case "viewrangeall" -> handleViewRangeAll(sender, args);
             case "info" -> handleInfo(sender, args);
             case "stats" -> handleStats(sender);
+            case "setitem" -> handleSetItem(sender, args);
+            case "setblock" -> handleSetBlock(sender, args);
+            case "interaction" -> handleInteraction(sender, args);
             case "template" -> handleTemplate(sender, args);
             case "delete" -> handleDelete(sender, args);
             case "list" -> handleList(sender);
@@ -135,30 +141,110 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         }
         if (args.length < 3) {
             sender.sendMessage(TextUtil.error("Usage: /display create <id> <text...>"));
+            sender.sendMessage(TextUtil.error("Usage: /display create item <id> <material>"));
+            sender.sendMessage(TextUtil.error("Usage: /display create block <id> <material>"));
             return;
         }
-        String id = args[1];
+
+        String maybeType = args[1].toLowerCase(Locale.ROOT);
+        if (maybeType.equals("text")) {
+            if (args.length < 4) {
+                sender.sendMessage(TextUtil.error("Usage: /display create text <id> <text...>"));
+                return;
+            }
+            createText(player, args[2], join(args, 3));
+            return;
+        }
+        if (maybeType.equals("item")) {
+            if (args.length < 4) {
+                sender.sendMessage(TextUtil.error("Usage: /display create item <id> <material>"));
+                return;
+            }
+            createItem(player, args[2], args[3]);
+            return;
+        }
+        if (maybeType.equals("block")) {
+            if (args.length < 4) {
+                sender.sendMessage(TextUtil.error("Usage: /display create block <id> <material>"));
+                return;
+            }
+            createBlock(player, args[2], args[3]);
+            return;
+        }
+
+        createText(player, args[1], join(args, 2));
+    }
+
+    private void createText(Player player, String id, String text) {
         if (!isValidNewId(id)) {
-            sender.sendMessage(TextUtil.error("Display id must be 1-64 characters: letters, numbers, _ or -."));
+            player.sendMessage(TextUtil.error("Display id must be 1-64 characters: letters, numbers, _ or -."));
             return;
         }
         if (manager.exists(id)) {
-            sender.sendMessage(TextUtil.error("A display with id '" + id + "' already exists."));
+            player.sendMessage(TextUtil.error("A display with id '" + id + "' already exists."));
             return;
         }
-        String text = join(args, 2);
         if (text.isBlank()) {
-            sender.sendMessage(TextUtil.error("Text cannot be empty."));
+            player.sendMessage(TextUtil.error("Text cannot be empty."));
             return;
         }
 
         DisplayData data = new DisplayData(id);
+        data.setType(DisplayType.TEXT);
         data.setLocation(player.getLocation());
         data.addLine(text);
         manager.put(data);
         manager.saveAll();
         manager.respawn(data);
-        sender.sendMessage(TextUtil.success("Created display '" + id + "' at your location."));
+        player.sendMessage(TextUtil.success("Created display '" + id + "' at your location."));
+    }
+
+    private void createItem(Player player, String id, String rawMaterial) {
+        if (!isValidNewId(id)) {
+            player.sendMessage(TextUtil.error("Display id must be 1-64 characters: letters, numbers, _ or -."));
+            return;
+        }
+        if (manager.exists(id)) {
+            player.sendMessage(TextUtil.error("A display with id '" + id + "' already exists."));
+            return;
+        }
+        Material material = parseMaterial(player, rawMaterial);
+        if (material == null) {
+            return;
+        }
+        DisplayData data = new DisplayData(id);
+        data.setType(DisplayType.ITEM);
+        data.setLocation(player.getLocation());
+        data.setItemMaterial(material);
+        manager.put(data);
+        manager.saveAll();
+        manager.respawn(data);
+        player.sendMessage(TextUtil.success("Created item display '" + id
+                + "' using " + material.name() + "."));
+    }
+
+    private void createBlock(Player player, String id, String rawMaterial) {
+        if (!isValidNewId(id)) {
+            player.sendMessage(TextUtil.error("Display id must be 1-64 characters: letters, numbers, _ or -."));
+            return;
+        }
+        if (manager.exists(id)) {
+            player.sendMessage(TextUtil.error("A display with id '" + id + "' already exists."));
+            return;
+        }
+        Material material = parseBlockMaterial(player, rawMaterial);
+        if (material == null) {
+            return;
+        }
+        DisplayData data = new DisplayData(id);
+        data.setType(DisplayType.BLOCK);
+        data.setLocation(player.getLocation());
+        data.setBlockMaterial(material);
+        manager.put(data);
+        manager.saveAll();
+        manager.respawn(data);
+        player.sendMessage(TextUtil.success("Created block display '" + id
+                + "' using " + material.name() + "."));
     }
 
     /* ---------------------------- addline ------------------------------- */
@@ -170,6 +256,9 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         }
         DisplayData data = require(sender, args[1]);
         if (data == null) {
+            return;
+        }
+        if (!requireType(sender, data, DisplayType.TEXT)) {
             return;
         }
         String text = join(args, 2);
@@ -193,6 +282,9 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         }
         DisplayData data = require(sender, args[1]);
         if (data == null) {
+            return;
+        }
+        if (!requireType(sender, data, DisplayType.TEXT)) {
             return;
         }
         Integer line = parseLine(sender, args[2], data.getLines().size());
@@ -219,6 +311,9 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         }
         DisplayData data = require(sender, args[1]);
         if (data == null) {
+            return;
+        }
+        if (!requireType(sender, data, DisplayType.TEXT)) {
             return;
         }
         Integer line = parseLine(sender, args[2], data.getLines().size());
@@ -307,12 +402,14 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         for (NearbyDisplay entry : nearby) {
             DisplayData data = entry.data();
             Location loc = entry.location();
-            String line = "- " + data.getId() + " (" + round(entry.distance()) + "m) at "
+            String line = "- " + data.getId() + " (" + round(entry.distance()) + "m) ["
+                    + data.getType() + "] at "
                     + round(loc.getX()) + ", " + round(loc.getY()) + ", " + round(loc.getZ());
-            String preview = data.getLines().isEmpty() ? "" : data.getLines().getFirst();
+            String preview = preview(data);
             Component hover = Component.text("World: " + data.getWorld()
                     + "\nX/Y/Z: " + round(loc.getX()) + ", " + round(loc.getY()) + ", " + round(loc.getZ())
-                    + "\nText: " + preview);
+                    + "\nType: " + data.getType()
+                    + "\nPreview: " + preview);
             player.sendMessage(Component.text(line)
                     .clickEvent(ClickEvent.suggestCommand("/display edit " + data.getId()))
                     .hoverEvent(HoverEvent.showText(hover)));
@@ -360,32 +457,58 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         int loaded = manager.getFullySpawnedDisplayCount();
         int missingWorlds = 0;
         int missingEntities = 0;
+        int missingInteractions = 0;
+        int invalidMaterials = 0;
         int invalid = 0;
+        int text = 0;
+        int item = 0;
+        int block = 0;
 
         for (DisplayData data : manager.getDisplays().values()) {
+            switch (data.getType()) {
+                case TEXT -> text++;
+                case ITEM -> item++;
+                case BLOCK -> block++;
+            }
             World world = org.bukkit.Bukkit.getWorld(data.getWorld());
             if (world == null) {
                 missingWorlds++;
             }
+            if (data.getType() == DisplayType.ITEM && data.getItemMaterial().isAir()) {
+                invalidMaterials++;
+            }
+            if (data.getType() == DisplayType.BLOCK && !data.getBlockMaterial().isBlock()) {
+                invalidMaterials++;
+            }
             if (!isFinite(data.getX()) || !isFinite(data.getY()) || !isFinite(data.getZ())
                     || !isFinite(data.getLineSpacing()) || !isFinite(data.getScale())
                     || !isFinite(data.getViewRange()) || !isFinite(data.getRefreshViewerRange())
-                    || data.getLines().isEmpty()
+                    || (data.getType() == DisplayType.TEXT && data.getLines().isEmpty())
                     || data.getRefreshIntervalSeconds() < 1) {
                 invalid++;
             }
             if (data.isEnabled() && world != null && !manager.isFullySpawned(data)) {
                 missingEntities++;
             }
+            if (data.isEnabled() && data.isInteractionEnabled()
+                    && world != null && !manager.isInteractionSpawned(data)) {
+                missingInteractions++;
+            }
         }
 
         sender.sendMessage(TextUtil.info("CozyDisplays Audit"));
         sender.sendMessage(TextUtil.info("Total displays: " + total));
+        sender.sendMessage(TextUtil.info("Types: " + text + " text, " + item
+                + " item, " + block + " block"));
         sender.sendMessage(TextUtil.info("Loaded/spawned: " + loaded));
         sender.sendMessage(TextUtil.info("Missing worlds: " + missingWorlds));
         sender.sendMessage(TextUtil.info("Missing entities: " + missingEntities));
+        sender.sendMessage(TextUtil.info("Missing interactions: " + missingInteractions));
+        sender.sendMessage(TextUtil.info("Orphan interactions: " + manager.countOrphanInteractions()));
+        sender.sendMessage(TextUtil.info("Invalid materials: " + invalidMaterials));
         sender.sendMessage(TextUtil.info("Invalid entries: " + invalid));
-        if (missingWorlds == 0 && missingEntities == 0 && invalid == 0) {
+        if (missingWorlds == 0 && missingEntities == 0 && missingInteractions == 0
+                && invalidMaterials == 0 && invalid == 0 && manager.countOrphanInteractions() == 0) {
             sender.sendMessage(TextUtil.success("No issues found."));
         } else {
             sender.sendMessage(TextUtil.info("Use /display reload to respawn missing valid displays."));
@@ -728,8 +851,15 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             return;
         }
         sender.sendMessage(TextUtil.info("Display '" + data.getId() + "':"));
+        sender.sendMessage(TextUtil.info("Type: " + data.getType()));
         sender.sendMessage(TextUtil.info("Enabled: " + data.isEnabled()));
         sender.sendMessage(TextUtil.info("Lines: " + data.getLines().size()));
+        if (data.getType() == DisplayType.ITEM) {
+            sender.sendMessage(TextUtil.info("Item: " + data.getItemMaterial().name()));
+        }
+        if (data.getType() == DisplayType.BLOCK) {
+            sender.sendMessage(TextUtil.info("Block: " + data.getBlockMaterial().name()));
+        }
         sender.sendMessage(TextUtil.info("Scale: " + data.getScale()));
         sender.sendMessage(TextUtil.info("View range: " + data.getViewRange() + " blocks"));
         sender.sendMessage(TextUtil.info("Location: " + data.getWorld() + " "
@@ -739,6 +869,11 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
                 + ", interval " + data.getRefreshIntervalSeconds() + "s"
                 + ", only when viewed: " + data.isRefreshOnlyWhenViewed()
                 + ", viewer range: " + data.getRefreshViewerRange() + " blocks"));
+        sender.sendMessage(TextUtil.info("Interaction: " + (data.isInteractionEnabled() ? "enabled" : "disabled")
+                + ", size " + data.getInteractionWidth() + " x " + data.getInteractionHeight()
+                + ", cooldown " + data.getInteractionCooldownSeconds() + "s"
+                + ", left actions " + data.getInteractionLeftActions().size()
+                + ", right actions " + data.getInteractionRightActions().size()));
         sender.sendMessage(TextUtil.info("Placeholders: "
                 + (plugin.isPlaceholdersEnabled() ? "enabled" : "not installed")));
     }
@@ -749,12 +884,210 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(TextUtil.info("Displays: " + manager.getDisplays().size()
                 + " saved, " + manager.getEnabledCount() + " enabled, "
                 + manager.getHiddenCount() + " hidden."));
-        sender.sendMessage(TextUtil.info("TextDisplay entities spawned: "
+        sender.sendMessage(TextUtil.info("Display/interaction entities spawned: "
                 + manager.getSpawnedEntityCount() + "."));
         sender.sendMessage(TextUtil.info("Saved lines: " + manager.getTotalLineCount() + "."));
         sender.sendMessage(TextUtil.info("Default view range: "
                 + plugin.getDefaultViewRange() + " blocks."));
         sender.sendMessage(TextUtil.info(plugin.refreshStatus()));
+    }
+
+    /* -------------------------- item / block --------------------------- */
+
+    private void handleSetItem(CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage(TextUtil.error("Usage: /display setitem <id> <material>"));
+            return;
+        }
+        DisplayData data = require(sender, args[1]);
+        if (data == null) {
+            return;
+        }
+        if (data.getType() != DisplayType.ITEM) {
+            sender.sendMessage(TextUtil.error("Display '" + data.getId() + "' is type "
+                    + data.getType() + ", not ITEM."));
+            return;
+        }
+        Material material = parseMaterial(sender, args[2]);
+        if (material == null) {
+            return;
+        }
+        data.setItemMaterial(material);
+        manager.saveAll();
+        manager.respawn(data);
+        sender.sendMessage(TextUtil.success("Updated item display '" + data.getId()
+                + "' to " + material.name() + "."));
+    }
+
+    private void handleSetBlock(CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage(TextUtil.error("Usage: /display setblock <id> <material>"));
+            return;
+        }
+        DisplayData data = require(sender, args[1]);
+        if (data == null) {
+            return;
+        }
+        if (data.getType() != DisplayType.BLOCK) {
+            sender.sendMessage(TextUtil.error("Display '" + data.getId() + "' is type "
+                    + data.getType() + ", not BLOCK."));
+            return;
+        }
+        Material material = parseBlockMaterial(sender, args[2]);
+        if (material == null) {
+            return;
+        }
+        data.setBlockMaterial(material);
+        manager.saveAll();
+        manager.respawn(data);
+        sender.sendMessage(TextUtil.success("Updated block display '" + data.getId()
+                + "' to " + material.name() + "."));
+    }
+
+    /* --------------------------- interaction --------------------------- */
+
+    private void handleInteraction(CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage(TextUtil.error("Usage: /display interaction <enable|disable|size|cooldown|add|clear> ..."));
+            return;
+        }
+        String action = args[1].toLowerCase(Locale.ROOT);
+        switch (action) {
+            case "enable" -> {
+                DisplayData data = require(sender, args[2]);
+                if (data == null) {
+                    return;
+                }
+                data.setInteractionEnabled(true);
+                if (data.getInteractionWidth() <= 0.0D) {
+                    data.setInteractionWidth(plugin.getInteractionDefaultWidth());
+                }
+                if (data.getInteractionHeight() <= 0.0D) {
+                    data.setInteractionHeight(plugin.getInteractionDefaultHeight());
+                }
+                manager.saveAll();
+                manager.respawn(data);
+                sender.sendMessage(TextUtil.success("Enabled interaction for display '" + data.getId() + "'."));
+            }
+            case "disable" -> {
+                DisplayData data = require(sender, args[2]);
+                if (data == null) {
+                    return;
+                }
+                data.setInteractionEnabled(false);
+                manager.saveAll();
+                manager.respawn(data);
+                sender.sendMessage(TextUtil.info("Disabled interaction for display '" + data.getId() + "'."));
+            }
+            case "size" -> handleInteractionSize(sender, args);
+            case "cooldown" -> handleInteractionCooldown(sender, args);
+            case "add" -> handleInteractionAdd(sender, args);
+            case "clear" -> handleInteractionClear(sender, args);
+            default -> sender.sendMessage(TextUtil.error(
+                    "Usage: /display interaction <enable|disable|size|cooldown|add|clear> ..."));
+        }
+    }
+
+    private void handleInteractionSize(CommandSender sender, String[] args) {
+        if (args.length < 5) {
+            sender.sendMessage(TextUtil.error("Usage: /display interaction size <id> <width> <height>"));
+            return;
+        }
+        DisplayData data = require(sender, args[2]);
+        if (data == null) {
+            return;
+        }
+        Double width = parseDouble(sender, args[3], "Width");
+        Double height = parseDouble(sender, args[4], "Height");
+        if (width == null || height == null) {
+            return;
+        }
+        data.setInteractionWidth(clamp(width, 0.1D, plugin.getInteractionMaxWidth()));
+        data.setInteractionHeight(clamp(height, 0.1D, plugin.getInteractionMaxHeight()));
+        manager.saveAll();
+        manager.respawn(data);
+        sender.sendMessage(TextUtil.success("Set interaction size for '" + data.getId()
+                + "' to " + round(data.getInteractionWidth()) + " x "
+                + round(data.getInteractionHeight()) + "."));
+    }
+
+    private void handleInteractionCooldown(CommandSender sender, String[] args) {
+        if (args.length < 4) {
+            sender.sendMessage(TextUtil.error("Usage: /display interaction cooldown <id> <seconds>"));
+            return;
+        }
+        DisplayData data = require(sender, args[2]);
+        if (data == null) {
+            return;
+        }
+        int seconds;
+        try {
+            seconds = Integer.parseInt(args[3]);
+        } catch (NumberFormatException ex) {
+            sender.sendMessage(TextUtil.error("Cooldown must be a whole number."));
+            return;
+        }
+        data.setInteractionCooldownSeconds((int) clamp(seconds, 0, plugin.getInteractionMaxCooldownSeconds()));
+        manager.saveAll();
+        manager.respawn(data);
+        sender.sendMessage(TextUtil.success("Set interaction cooldown for '" + data.getId()
+                + "' to " + data.getInteractionCooldownSeconds() + "s."));
+    }
+
+    private void handleInteractionAdd(CommandSender sender, String[] args) {
+        if (args.length < 5) {
+            sender.sendMessage(TextUtil.error("Usage: /display interaction add <id> <left|right> <action>"));
+            return;
+        }
+        DisplayData data = require(sender, args[2]);
+        if (data == null) {
+            return;
+        }
+        String click = args[3].toLowerCase(Locale.ROOT);
+        if (!click.equals("left") && !click.equals("right")) {
+            sender.sendMessage(TextUtil.error("Click type must be left or right."));
+            return;
+        }
+        String action = join(args, 4);
+        if (!isValidInteractionAction(action)) {
+            sender.sendMessage(TextUtil.error("Action must start with player:, console:, or message:."));
+            return;
+        }
+        if (click.equals("left")) {
+            data.getInteractionLeftActions().add(action);
+        } else {
+            data.getInteractionRightActions().add(action);
+        }
+        manager.saveAll();
+        sender.sendMessage(TextUtil.success("Added " + click + " action to display '"
+                + data.getId() + "'."));
+    }
+
+    private void handleInteractionClear(CommandSender sender, String[] args) {
+        if (args.length < 4) {
+            sender.sendMessage(TextUtil.error("Usage: /display interaction clear <id> <left|right|all>"));
+            return;
+        }
+        DisplayData data = require(sender, args[2]);
+        if (data == null) {
+            return;
+        }
+        String click = args[3].toLowerCase(Locale.ROOT);
+        switch (click) {
+            case "left" -> data.getInteractionLeftActions().clear();
+            case "right" -> data.getInteractionRightActions().clear();
+            case "all" -> {
+                data.getInteractionLeftActions().clear();
+                data.getInteractionRightActions().clear();
+            }
+            default -> {
+                sender.sendMessage(TextUtil.error("Click type must be left, right, or all."));
+                return;
+            }
+        }
+        manager.saveAll();
+        sender.sendMessage(TextUtil.info("Cleared " + click + " actions for display '"
+                + data.getId() + "'."));
     }
 
     /* ----------------------------- template ---------------------------- */
@@ -854,7 +1187,7 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(TextUtil.info("Displays (" + manager.getDisplays().size() + "):"));
         for (DisplayData data : manager.getDisplays().values()) {
             sender.sendMessage(TextUtil.info(" - " + data.getId()
-                    + " (" + data.getLines().size() + " lines, world: " + data.getWorld() + ")"));
+                    + " (" + data.getType() + ", world: " + data.getWorld() + ")"));
         }
     }
 
@@ -869,7 +1202,7 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             int spawned = manager.getSpawnedEntityCount();
             if (spawned > plugin.getEntityWarningThreshold()) {
                 sender.sendMessage(TextUtil.error("Warning: " + spawned
-                        + " TextDisplay entities are spawned. Dense displays may cause"
+                        + " display/interaction entities are spawned. Dense displays may cause"
                         + " client FPS lag near spawn."));
             }
         } catch (RuntimeException ex) {
@@ -913,6 +1246,9 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
     private void sendUsage(CommandSender sender) {
         sender.sendMessage(TextUtil.info("CozyDisplays commands:"));
         sender.sendMessage(TextUtil.info(" /display create <id> <text...>"));
+        sender.sendMessage(TextUtil.info(" /display create text <id> <text...>"));
+        sender.sendMessage(TextUtil.info(" /display create item <id> <material>"));
+        sender.sendMessage(TextUtil.info(" /display create block <id> <material>"));
         sender.sendMessage(TextUtil.info(" /display addline <id> <text...>"));
         sender.sendMessage(TextUtil.info(" /display setline <id> <lineNumber> <text...>"));
         sender.sendMessage(TextUtil.info(" /display removeline <id> <lineNumber>"));
@@ -932,6 +1268,9 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(TextUtil.info(" /display viewrangeall <range> - Set view range for all displays."));
         sender.sendMessage(TextUtil.info(" /display info <id> - Show a display's saved settings."));
         sender.sendMessage(TextUtil.info(" /display stats - Show display and render counts."));
+        sender.sendMessage(TextUtil.info(" /display setitem <id> <material>"));
+        sender.sendMessage(TextUtil.info(" /display setblock <id> <material>"));
+        sender.sendMessage(TextUtil.info(" /display interaction <enable|disable|size|cooldown|add|clear> ..."));
         sender.sendMessage(TextUtil.info(" /display template <list|save|apply> ..."));
         sender.sendMessage(TextUtil.info(" /display delete <id>"));
         sender.sendMessage(TextUtil.info(" /display list"));
@@ -953,6 +1292,16 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
 
         String sub = args[0].toLowerCase(Locale.ROOT);
 
+        if (sub.equals("create")) {
+            if (args.length == 2) {
+                return filter(List.of("text", "item", "block"), args[1]);
+            }
+            if (args.length == 4 && (args[1].equalsIgnoreCase("item")
+                    || args[1].equalsIgnoreCase("block"))) {
+                return filter(materialSuggestions(args[1].equalsIgnoreCase("block")), args[3]);
+            }
+        }
+
         if (args.length == 2 && needsId(sub)) {
             return filter(new ArrayList<>(manager.getDisplays().keySet()), args[1]);
         }
@@ -967,6 +1316,24 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             if (args.length == 4 && (args[1].equalsIgnoreCase("save")
                     || args[1].equalsIgnoreCase("apply"))) {
                 return filter(new ArrayList<>(manager.getDisplays().keySet()), args[3]);
+            }
+        }
+
+        if (sub.equals("interaction")) {
+            if (args.length == 2) {
+                return filter(List.of("enable", "disable", "size", "cooldown", "add", "clear"), args[1]);
+            }
+            if (args.length == 3) {
+                return filter(new ArrayList<>(manager.getDisplays().keySet()), args[2]);
+            }
+            if (args.length == 4 && args[1].equalsIgnoreCase("add")) {
+                return filter(List.of("left", "right"), args[3]);
+            }
+            if (args.length == 4 && args[1].equalsIgnoreCase("clear")) {
+                return filter(List.of("left", "right", "all"), args[3]);
+            }
+            if (args.length == 5 && args[1].equalsIgnoreCase("add")) {
+                return filter(List.of("player:", "console:", "message:"), args[4]);
             }
         }
 
@@ -1006,6 +1373,14 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             return filter(BOOL_SUGGESTIONS, args[2]);
         }
 
+        if (sub.equals("setitem") && args.length == 3) {
+            return filter(materialSuggestions(false), args[2]);
+        }
+
+        if (sub.equals("setblock") && args.length == 3) {
+            return filter(materialSuggestions(true), args[2]);
+        }
+
         if (sub.equals("viewrangeall") && args.length == 2) {
             return filter(VIEW_RANGE_SUGGESTIONS, args[1]);
         }
@@ -1018,9 +1393,89 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             case "addline", "setline", "removeline", "movehere", "snapwall",
                  "nudge", "up", "down", "left", "right", "forward", "back",
                  "scale", "viewrange", "enabled", "hide", "show", "info",
-                 "edit", "clone", "delete" -> true;
+                 "edit", "clone", "setitem", "setblock", "delete" -> true;
             default -> false;
         };
+    }
+
+    private boolean requireType(CommandSender sender, DisplayData data, DisplayType expected) {
+        if (data.getType() == expected) {
+            return true;
+        }
+        sender.sendMessage(TextUtil.error("Display '" + data.getId() + "' is type "
+                + data.getType() + ", not " + expected + "."));
+        return false;
+    }
+
+    private Material parseMaterial(CommandSender sender, String raw) {
+        Material material = Material.matchMaterial(raw);
+        if (material == null || material.isAir()) {
+            sender.sendMessage(TextUtil.error("Invalid material '" + raw + "'."));
+            return null;
+        }
+        return material;
+    }
+
+    private Material parseBlockMaterial(CommandSender sender, String raw) {
+        Material material = parseMaterial(sender, raw);
+        if (material == null) {
+            return null;
+        }
+        if (!material.isBlock()) {
+            sender.sendMessage(TextUtil.error("Material '" + raw + "' is not a block."));
+            return null;
+        }
+        return material;
+    }
+
+    private Double parseDouble(CommandSender sender, String raw, String label) {
+        try {
+            double value = Double.parseDouble(raw);
+            if (!isFinite(value)) {
+                sender.sendMessage(TextUtil.error(label + " must be a valid number."));
+                return null;
+            }
+            return value;
+        } catch (NumberFormatException ex) {
+            sender.sendMessage(TextUtil.error(label + " must be a valid number."));
+            return null;
+        }
+    }
+
+    private boolean isValidInteractionAction(String action) {
+        String lower = action.toLowerCase(Locale.ROOT);
+        return lower.startsWith("player:")
+                || lower.startsWith("console:")
+                || lower.startsWith("message:");
+    }
+
+    private double clamp(double value, double min, double max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    private String preview(DisplayData data) {
+        return switch (data.getType()) {
+            case TEXT -> data.getLines().isEmpty() ? "" : data.getLines().getFirst();
+            case ITEM -> data.getItemMaterial().name();
+            case BLOCK -> data.getBlockMaterial().name();
+        };
+    }
+
+    private List<String> materialSuggestions(boolean blocksOnly) {
+        List<String> options = new ArrayList<>();
+        for (Material material : Material.values()) {
+            if (material.isAir()) {
+                continue;
+            }
+            if (blocksOnly && !material.isBlock()) {
+                continue;
+            }
+            options.add(material.name());
+            if (options.size() >= 200) {
+                break;
+            }
+        }
+        return options;
     }
 
     private boolean isFinite(double value) {

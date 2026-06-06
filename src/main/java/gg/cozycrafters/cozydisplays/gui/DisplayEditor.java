@@ -85,6 +85,7 @@ public final class DisplayEditor implements Listener {
         }
 
         switch (event.getRawSlot()) {
+            case 7 -> suggestMaterialEdit(player, data);
             case 10 -> teleport(player, data);
             case 12 -> moveHere(player, data);
             case 14 -> forceRefresh(player, data);
@@ -126,6 +127,18 @@ public final class DisplayEditor implements Listener {
         inventory.setItem(4, item(Material.NAME_TAG,
                 plugin.getConfig().getString("editor.items.info.name", "&b%id%"),
                 plugin.getConfig().getStringList("editor.items.info.lore"), data));
+        inventory.setItem(6, item(Material.OAK_SIGN,
+                plugin.getConfig().getString("editor.items.type.name", "&bType: &f%type%"),
+                plugin.getConfig().getStringList("editor.items.type.lore"), data));
+        if (data.getType() == gg.cozycrafters.cozydisplays.display.DisplayType.ITEM) {
+            inventory.setItem(7, item(data.getItemMaterial(),
+                    plugin.getConfig().getString("editor.items.item-material.name", "&eItem: &f%material%"),
+                    plugin.getConfig().getStringList("editor.items.item-material.lore"), data));
+        } else if (data.getType() == gg.cozycrafters.cozydisplays.display.DisplayType.BLOCK) {
+            inventory.setItem(7, item(data.getBlockMaterial(),
+                    plugin.getConfig().getString("editor.items.block-material.name", "&eBlock: &f%material%"),
+                    plugin.getConfig().getStringList("editor.items.block-material.lore"), data));
+        }
         inventory.setItem(10, item(Material.ENDER_PEARL,
                 plugin.getConfig().getString("editor.items.teleport.name", "&aTeleport"),
                 plugin.getConfig().getStringList("editor.items.teleport.lore"), data));
@@ -218,6 +231,23 @@ public final class DisplayEditor implements Listener {
                         .hoverEvent(HoverEvent.showText(Component.text("Suggest command")))));
     }
 
+    private void suggestMaterialEdit(Player player, DisplayData data) {
+        player.closeInventory();
+        String command;
+        switch (data.getType()) {
+            case ITEM -> command = "/display setitem " + data.getId() + " " + data.getItemMaterial().name();
+            case BLOCK -> command = "/display setblock " + data.getId() + " " + data.getBlockMaterial().name();
+            default -> {
+                player.sendMessage(TextUtil.info("Text displays do not have item or block material."));
+                return;
+            }
+        }
+        player.sendMessage(Component.text("Click to prepare material command: ")
+                .append(Component.text(command)
+                        .clickEvent(ClickEvent.suggestCommand(command))
+                        .hoverEvent(HoverEvent.showText(Component.text("Suggest command")))));
+    }
+
     private void nudge(Player player, DisplayData data, double dx, double dy, double dz) {
         data.setRawLocation(data.getWorld(), data.getX() + dx, data.getY() + dy, data.getZ() + dz,
                 data.getYaw(), data.getPitch());
@@ -251,11 +281,21 @@ public final class DisplayEditor implements Listener {
         return input
                 .replace("%id%", data.getId())
                 .replace("%world%", String.valueOf(data.getWorld()))
+                .replace("%type%", data.getType().name())
+                .replace("%material%", materialName(data))
                 .replace("%x%", round(data.getX()))
                 .replace("%y%", round(data.getY()))
                 .replace("%z%", round(data.getZ()))
                 .replace("%scale%", round(data.getScale()))
                 .replace("%view_range%", round(data.getViewRange()));
+    }
+
+    private String materialName(DisplayData data) {
+        return switch (data.getType()) {
+            case ITEM -> data.getItemMaterial().name();
+            case BLOCK -> data.getBlockMaterial().name();
+            case TEXT -> "";
+        };
     }
 
     private String round(double value) {

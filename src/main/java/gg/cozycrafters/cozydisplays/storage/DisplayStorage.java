@@ -1,6 +1,8 @@
 package gg.cozycrafters.cozydisplays.storage;
 
 import gg.cozycrafters.cozydisplays.display.DisplayData;
+import gg.cozycrafters.cozydisplays.display.DisplayType;
+import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Display;
@@ -52,7 +54,7 @@ public final class DisplayStorage {
             }
             try {
                 DisplayData data = readEntry(id, sec);
-                if (data.getLines().isEmpty()) {
+                if (data.getType() == DisplayType.TEXT && data.getLines().isEmpty()) {
                     plugin.getLogger().warning("Display '" + id + "' has no lines; skipping.");
                     continue;
                 }
@@ -67,6 +69,7 @@ public final class DisplayStorage {
 
     private DisplayData readEntry(String id, ConfigurationSection sec) {
         DisplayData data = new DisplayData(id);
+        data.setType(parseType(sec.getString("type", "TEXT")));
         data.setRawLocation(
                 sec.getString("world", "world"),
                 sec.getDouble("x"),
@@ -92,6 +95,20 @@ public final class DisplayStorage {
                 plugin.getConfig().getBoolean("refresh.default-only-when-viewed", true)));
         data.setRefreshViewerRange(readDouble(id, sec, "refresh.viewer-range",
                 readDefaultRefreshViewerRange(), 1.0D, 256.0D));
+        data.setItemMaterial(parseMaterial(sec.getString("item", "DIAMOND"), Material.DIAMOND));
+        data.setBlockMaterial(parseMaterial(sec.getString("block", "DIAMOND_BLOCK"), Material.DIAMOND_BLOCK));
+        data.setInteractionEnabled(sec.getBoolean("interaction.enabled", false));
+        data.setInteractionWidth(readDouble(id, sec, "interaction.width",
+                plugin.getConfig().getDouble("interaction.default-width", 1.0D),
+                0.1D, readInteractionMaxWidth()));
+        data.setInteractionHeight(readDouble(id, sec, "interaction.height",
+                plugin.getConfig().getDouble("interaction.default-height", 1.0D),
+                0.1D, readInteractionMaxHeight()));
+        data.setInteractionCooldownSeconds(readInt(id, sec, "interaction.cooldown-seconds",
+                plugin.getConfig().getInt("interaction.default-cooldown-seconds", 1),
+                0, readInteractionMaxCooldownSeconds()));
+        data.setInteractionLeftActions(sec.getStringList("interaction.actions.left"));
+        data.setInteractionRightActions(sec.getStringList("interaction.actions.right"));
 
         List<String> lines = sec.getStringList("lines");
         data.setLines(lines);
@@ -104,6 +121,7 @@ public final class DisplayStorage {
         for (Map.Entry<String, DisplayData> entry : displays.entrySet()) {
             DisplayData d = entry.getValue();
             String base = "displays." + entry.getKey() + ".";
+            cfg.set(base + "type", d.getType().name());
             cfg.set(base + "world", d.getWorld());
             cfg.set(base + "x", d.getX());
             cfg.set(base + "y", d.getY());
@@ -123,6 +141,14 @@ public final class DisplayStorage {
             cfg.set(base + "refresh.interval-seconds", d.getRefreshIntervalSeconds());
             cfg.set(base + "refresh.only-when-viewed", d.isRefreshOnlyWhenViewed());
             cfg.set(base + "refresh.viewer-range", d.getRefreshViewerRange());
+            cfg.set(base + "item", d.getItemMaterial().name());
+            cfg.set(base + "block", d.getBlockMaterial().name());
+            cfg.set(base + "interaction.enabled", d.isInteractionEnabled());
+            cfg.set(base + "interaction.width", d.getInteractionWidth());
+            cfg.set(base + "interaction.height", d.getInteractionHeight());
+            cfg.set(base + "interaction.cooldown-seconds", d.getInteractionCooldownSeconds());
+            cfg.set(base + "interaction.actions.left", d.getInteractionLeftActions());
+            cfg.set(base + "interaction.actions.right", d.getInteractionRightActions());
             cfg.set(base + "lines", d.getLines());
         }
 
@@ -161,6 +187,19 @@ public final class DisplayStorage {
         }
     }
 
+    private DisplayType parseType(String raw) {
+        try {
+            return DisplayType.valueOf(raw.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            return DisplayType.TEXT;
+        }
+    }
+
+    private Material parseMaterial(String raw, Material fallback) {
+        Material material = Material.matchMaterial(raw == null ? "" : raw.trim());
+        return material == null ? fallback : material;
+    }
+
     private TextDisplay.TextAlignment parseAlignment(String raw) {
         try {
             return TextDisplay.TextAlignment.valueOf(raw.trim().toUpperCase(Locale.ROOT));
@@ -194,6 +233,21 @@ public final class DisplayStorage {
             return 32.0D;
         }
         return Math.max(1.0D, Math.min(256.0D, value));
+    }
+
+    private double readInteractionMaxWidth() {
+        double value = plugin.getConfig().getDouble("interaction.max-width", 5.0D);
+        return Math.max(0.1D, Math.min(64.0D, value));
+    }
+
+    private double readInteractionMaxHeight() {
+        double value = plugin.getConfig().getDouble("interaction.max-height", 5.0D);
+        return Math.max(0.1D, Math.min(64.0D, value));
+    }
+
+    private int readInteractionMaxCooldownSeconds() {
+        int value = plugin.getConfig().getInt("interaction.max-cooldown-seconds", 60);
+        return Math.max(0, Math.min(86_400, value));
     }
 
     private int readInt(String id, ConfigurationSection sec, String path,

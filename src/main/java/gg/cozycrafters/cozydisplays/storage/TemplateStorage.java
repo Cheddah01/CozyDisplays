@@ -1,6 +1,8 @@
 package gg.cozycrafters.cozydisplays.storage;
 
 import gg.cozycrafters.cozydisplays.display.DisplayData;
+import gg.cozycrafters.cozydisplays.display.DisplayType;
+import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Display;
@@ -45,6 +47,7 @@ public final class TemplateStorage {
     public void saveTemplate(String templateId, DisplayData source) {
         YamlConfiguration cfg = loadFile();
         String base = "templates." + templateId + ".";
+        cfg.set(base + "type", source.getType().name());
         cfg.set(base + "billboard", source.getBillboard().name().toLowerCase(Locale.ROOT));
         cfg.set(base + "alignment", source.getAlignment().name().toLowerCase(Locale.ROOT));
         cfg.set(base + "shadow", source.isShadow());
@@ -57,6 +60,14 @@ public final class TemplateStorage {
         cfg.set(base + "refresh.interval-seconds", source.getRefreshIntervalSeconds());
         cfg.set(base + "refresh.only-when-viewed", source.isRefreshOnlyWhenViewed());
         cfg.set(base + "refresh.viewer-range", source.getRefreshViewerRange());
+        cfg.set(base + "item", source.getItemMaterial().name());
+        cfg.set(base + "block", source.getBlockMaterial().name());
+        cfg.set(base + "interaction.enabled", source.isInteractionEnabled());
+        cfg.set(base + "interaction.width", source.getInteractionWidth());
+        cfg.set(base + "interaction.height", source.getInteractionHeight());
+        cfg.set(base + "interaction.cooldown-seconds", source.getInteractionCooldownSeconds());
+        cfg.set(base + "interaction.actions.left", source.getInteractionLeftActions());
+        cfg.set(base + "interaction.actions.right", source.getInteractionRightActions());
         cfg.set(base + "lines", source.getLines());
         saveFile(cfg);
     }
@@ -68,6 +79,7 @@ public final class TemplateStorage {
             return false;
         }
 
+        target.setType(parseType(sec.getString("type", "TEXT")));
         target.setBillboard(parseBillboard(sec.getString("billboard", "fixed")));
         target.setAlignment(parseAlignment(sec.getString("alignment", "center")));
         target.setShadow(sec.getBoolean("shadow", true));
@@ -80,6 +92,14 @@ public final class TemplateStorage {
         target.setRefreshIntervalSeconds(readInt(sec, "refresh.interval-seconds", 10, 1, 86_400));
         target.setRefreshOnlyWhenViewed(sec.getBoolean("refresh.only-when-viewed", true));
         target.setRefreshViewerRange(readDouble(sec, "refresh.viewer-range", 32.0D, 1.0D, 256.0D));
+        target.setItemMaterial(parseMaterial(sec.getString("item", "DIAMOND"), Material.DIAMOND));
+        target.setBlockMaterial(parseMaterial(sec.getString("block", "DIAMOND_BLOCK"), Material.DIAMOND_BLOCK));
+        target.setInteractionEnabled(sec.getBoolean("interaction.enabled", false));
+        target.setInteractionWidth(readDouble(sec, "interaction.width", 1.0D, 0.1D, 64.0D));
+        target.setInteractionHeight(readDouble(sec, "interaction.height", 1.0D, 0.1D, 64.0D));
+        target.setInteractionCooldownSeconds(readInt(sec, "interaction.cooldown-seconds", 1, 0, 86_400));
+        target.setInteractionLeftActions(sec.getStringList("interaction.actions.left"));
+        target.setInteractionRightActions(sec.getStringList("interaction.actions.right"));
         List<String> lines = sec.getStringList("lines");
         if (!lines.isEmpty()) {
             target.setLines(lines);
@@ -129,6 +149,19 @@ public final class TemplateStorage {
         } catch (IllegalArgumentException ex) {
             return Display.Billboard.FIXED;
         }
+    }
+
+    private DisplayType parseType(String raw) {
+        try {
+            return DisplayType.valueOf(raw.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            return DisplayType.TEXT;
+        }
+    }
+
+    private Material parseMaterial(String raw, Material fallback) {
+        Material material = Material.matchMaterial(raw == null ? "" : raw.trim());
+        return material == null ? fallback : material;
     }
 
     private TextDisplay.TextAlignment parseAlignment(String raw) {

@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.8.0] - Interactive display types
+
+- Added display types: `TEXT`, `ITEM`, and `BLOCK`; existing saved displays
+  without a type load as `TEXT`.
+- Added `/display create text <id> <text...>`, `/display create item <id>
+  <material>`, and `/display create block <id> <material>`.
+- Kept `/display create <id> <text...>` as a backwards-compatible text display
+  alias.
+- Added `/display setitem <id> <material>` and `/display setblock <id>
+  <material>`.
+- Updated spawn/despawn/reload lifecycle to handle `TextDisplay`,
+  `ItemDisplay`, `BlockDisplay`, and optional `Interaction` hitboxes.
+- Extended clone, nearby, audit, info, templates, and the editor GUI for
+  type-aware display data.
+- Added optional clickable actions with `/display interaction ...` commands.
+  Actions are disabled by default and support `player:`, `console:`, and
+  `message:` formats with per-player cooldowns.
+- Added config defaults for interaction hitbox size, cooldowns, and editor
+  type/material buttons.
+- Bumped the plugin version to `1.8.0`.
+
 ## [1.7.0] - Admin editing and display polish
 
 - Added `/display nearby [radius]` to list nearby displays in the player's

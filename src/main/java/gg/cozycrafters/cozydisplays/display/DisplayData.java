@@ -1,6 +1,7 @@
 package gg.cozycrafters.cozydisplays.display;
 
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.TextDisplay;
@@ -16,6 +17,7 @@ public final class DisplayData {
 
     private final String id;
 
+    private DisplayType type = DisplayType.TEXT;
     private String world;
     private double x;
     private double y;
@@ -36,6 +38,14 @@ public final class DisplayData {
     private int refreshIntervalSeconds = 10;
     private boolean refreshOnlyWhenViewed = true;
     private double refreshViewerRange = 32.0D;
+    private Material itemMaterial = Material.DIAMOND;
+    private Material blockMaterial = Material.DIAMOND_BLOCK;
+    private boolean interactionEnabled = false;
+    private double interactionWidth = 1.0D;
+    private double interactionHeight = 1.0D;
+    private int interactionCooldownSeconds = 1;
+    private final List<String> interactionLeftActions = new ArrayList<>();
+    private final List<String> interactionRightActions = new ArrayList<>();
 
     private final List<String> lines = new ArrayList<>();
 
@@ -45,6 +55,14 @@ public final class DisplayData {
 
     public String getId() {
         return id;
+    }
+
+    public DisplayType getType() {
+        return type;
+    }
+
+    public void setType(DisplayType type) {
+        this.type = type == null ? DisplayType.TEXT : type;
     }
 
     public String getWorld() {
@@ -202,6 +220,76 @@ public final class DisplayData {
         this.refreshViewerRange = refreshViewerRange;
     }
 
+    public Material getItemMaterial() {
+        return itemMaterial;
+    }
+
+    public void setItemMaterial(Material itemMaterial) {
+        this.itemMaterial = itemMaterial == null ? Material.DIAMOND : itemMaterial;
+    }
+
+    public Material getBlockMaterial() {
+        return blockMaterial;
+    }
+
+    public void setBlockMaterial(Material blockMaterial) {
+        this.blockMaterial = blockMaterial == null ? Material.DIAMOND_BLOCK : blockMaterial;
+    }
+
+    public boolean isInteractionEnabled() {
+        return interactionEnabled;
+    }
+
+    public void setInteractionEnabled(boolean interactionEnabled) {
+        this.interactionEnabled = interactionEnabled;
+    }
+
+    public double getInteractionWidth() {
+        return interactionWidth;
+    }
+
+    public void setInteractionWidth(double interactionWidth) {
+        this.interactionWidth = interactionWidth;
+    }
+
+    public double getInteractionHeight() {
+        return interactionHeight;
+    }
+
+    public void setInteractionHeight(double interactionHeight) {
+        this.interactionHeight = interactionHeight;
+    }
+
+    public int getInteractionCooldownSeconds() {
+        return interactionCooldownSeconds;
+    }
+
+    public void setInteractionCooldownSeconds(int interactionCooldownSeconds) {
+        this.interactionCooldownSeconds = interactionCooldownSeconds;
+    }
+
+    public List<String> getInteractionLeftActions() {
+        return interactionLeftActions;
+    }
+
+    public List<String> getInteractionRightActions() {
+        return interactionRightActions;
+    }
+
+    public void setInteractionLeftActions(List<String> actions) {
+        interactionLeftActions.clear();
+        if (actions != null) {
+            interactionLeftActions.addAll(actions);
+        }
+    }
+
+    public void setInteractionRightActions(List<String> actions) {
+        interactionRightActions.clear();
+        if (actions != null) {
+            interactionRightActions.addAll(actions);
+        }
+    }
+
     public List<String> getLines() {
         return lines;
     }
@@ -219,6 +307,7 @@ public final class DisplayData {
 
     public DisplayData copyAs(String newId) {
         DisplayData copy = new DisplayData(newId);
+        copy.setType(type);
         copy.setRawLocation(world, x, y, z, yaw, pitch);
         copy.setBillboard(billboard);
         copy.setAlignment(alignment);
@@ -233,6 +322,14 @@ public final class DisplayData {
         copy.setRefreshIntervalSeconds(refreshIntervalSeconds);
         copy.setRefreshOnlyWhenViewed(refreshOnlyWhenViewed);
         copy.setRefreshViewerRange(refreshViewerRange);
+        copy.setItemMaterial(itemMaterial);
+        copy.setBlockMaterial(blockMaterial);
+        copy.setInteractionEnabled(interactionEnabled);
+        copy.setInteractionWidth(interactionWidth);
+        copy.setInteractionHeight(interactionHeight);
+        copy.setInteractionCooldownSeconds(interactionCooldownSeconds);
+        copy.setInteractionLeftActions(interactionLeftActions);
+        copy.setInteractionRightActions(interactionRightActions);
         copy.setLines(lines);
         return copy;
     }

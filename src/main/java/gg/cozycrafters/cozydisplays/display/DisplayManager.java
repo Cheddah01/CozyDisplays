@@ -4,13 +4,20 @@ import gg.cozycrafters.cozydisplays.placeholder.PlaceholderService;
 import gg.cozycrafters.cozydisplays.storage.DisplayStorage;
 import gg.cozycrafters.cozydisplays.util.TextUtil;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.entity.BlockDisplay;
+import org.bukkit.entity.Display;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Interaction;
+import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
@@ -39,10 +46,13 @@ public final class DisplayManager {
 
     private final NamespacedKey ownedKey;
     private final NamespacedKey idKey;
+    private final NamespacedKey interactionKey;
 
     private final Map<String, DisplayData> displays = new LinkedHashMap<>();
     /** Display id -> ordered line entity UUIDs (line index == list index). */
     private final Map<String, List<UUID>> spawned = new LinkedHashMap<>();
+    /** Display id -> spawned interaction hitbox UUID. */
+    private final Map<String, UUID> interactions = new LinkedHashMap<>();
     /** Display id -> last placeholder-resolved line strings (for change detection). */
     private final Map<String, List<String>> lastResolved = new LinkedHashMap<>();
     /** Display id -> last automatic placeholder refresh timestamp in millis. */
@@ -65,6 +75,7 @@ public final class DisplayManager {
         this.placeholders = placeholders;
         this.ownedKey = new NamespacedKey(plugin, "owned");
         this.idKey = new NamespacedKey(plugin, "id");
+        this.interactionKey = new NamespacedKey(plugin, "interaction");
     }
 
     /* ----------------------------- registry ----------------------------- */
@@ -86,6 +97,7 @@ public final class DisplayManager {
         for (List<UUID> ids : spawned.values()) {
             total += ids.size();
         }
+        total += interactions.size();
         return total;
     }
 
@@ -104,16 +116,46 @@ public final class DisplayManager {
             return false;
         }
         List<UUID> ids = spawned.get(data.getId());
-        if (ids == null || ids.size() != data.getLines().size()) {
+        int expected = data.getType() == DisplayType.TEXT ? data.getLines().size() : 1;
+        if (ids == null || ids.size() != expected) {
             return false;
         }
         for (UUID uuid : ids) {
             Entity entity = Bukkit.getEntity(uuid);
-            if (!(entity instanceof TextDisplay) || !entity.isValid()) {
+            if (!(entity instanceof Display) || !entity.isValid()) {
                 return false;
             }
         }
         return true;
+    }
+
+    public boolean isInteractionSpawned(DisplayData data) {
+        if (data == null || !data.isEnabled() || !data.isInteractionEnabled()) {
+            return false;
+        }
+        UUID uuid = interactions.get(data.getId());
+        Entity entity = uuid == null ? null : Bukkit.getEntity(uuid);
+        return entity instanceof Interaction && entity.isValid();
+    }
+
+    public int countOrphanInteractions() {
+        int total = 0;
+        for (World world : plugin.getServer().getWorlds()) {
+            for (Entity entity : world.getEntities()) {
+                if (!(entity instanceof Interaction)) {
+                    continue;
+                }
+                PersistentDataContainer pdc = entity.getPersistentDataContainer();
+                if (!isOwned(pdc) || !isInteraction(pdc)) {
+                    continue;
+                }
+                String ownerId = pdc.get(idKey, PersistentDataType.STRING);
+                if (ownerId == null || !displays.containsKey(ownerId)) {
+                    total++;
+                }
+            }
+        }
+        return total;
     }
 
     public int getTotalLineCount() {
@@ -170,6 +212,7 @@ public final class DisplayManager {
         displays.putAll(storage.load());
         cleanupOwnedEntities();
         spawned.clear();
+        interactions.clear();
         lastResolved.clear();
         lastRefreshRun.clear();
         spawnAll();
@@ -192,6 +235,7 @@ public final class DisplayManager {
     public void despawnAll() {
         cleanupOwnedEntities();
         spawned.clear();
+        interactions.clear();
         lastResolved.clear();
         lastRefreshRun.clear();
     }
@@ -214,31 +258,48 @@ public final class DisplayManager {
 
         if (!data.isEnabled()) {
             spawned.put(data.getId(), new ArrayList<>());
-            lastResolved.put(data.getId(), resolveLines(data));
+            lastResolved.put(data.getId(), data.getType() == DisplayType.TEXT
+                    ? resolveLines(data) : List.of());
             lastRefreshRun.put(data.getId(), System.currentTimeMillis());
             return;
         }
 
         World world = base.getWorld();
         List<UUID> ids = new ArrayList<>();
-        for (int i = 0; i < data.getLines().size(); i++) {
-            double offsetY = base.getY() - (i * data.getLineSpacing());
-            Location lineLoc = new Location(world, base.getX(), offsetY, base.getZ(),
-                    data.getYaw(), data.getPitch());
+        switch (data.getType()) {
+            case TEXT -> {
+                for (int i = 0; i < data.getLines().size(); i++) {
+                    double offsetY = base.getY() - (i * data.getLineSpacing());
+                    Location lineLoc = new Location(world, base.getX(), offsetY, base.getZ(),
+                            data.getYaw(), data.getPitch());
 
-            String rawLine = data.getLines().get(i);
-            TextDisplay entity = world.spawn(lineLoc, TextDisplay.class,
-                    e -> applySettings(e, data, rawLine));
-            ids.add(entity.getUniqueId());
-            if (viewRangeDebug) {
-                plugin.getLogger().info("[view-range] display='" + data.getId()
-                        + "' line=" + i + " uuid=" + entity.getUniqueId()
-                        + " blocks=" + data.getViewRange()
-                        + " appliedMultiplier=" + entity.getViewRange());
+                    String rawLine = data.getLines().get(i);
+                    TextDisplay entity = world.spawn(lineLoc, TextDisplay.class,
+                            e -> applyTextSettings(e, data, rawLine));
+                    ids.add(entity.getUniqueId());
+                    logViewRange(data, i, entity);
+                }
+            }
+            case ITEM -> {
+                ItemDisplay entity = world.spawn(base, ItemDisplay.class,
+                        e -> applyItemSettings(e, data));
+                ids.add(entity.getUniqueId());
+                logViewRange(data, 0, entity);
+            }
+            case BLOCK -> {
+                BlockDisplay entity = world.spawn(base, BlockDisplay.class,
+                        e -> applyBlockSettings(e, data));
+                ids.add(entity.getUniqueId());
+                logViewRange(data, 0, entity);
             }
         }
         spawned.put(data.getId(), ids);
-        lastResolved.put(data.getId(), resolveLines(data));
+        if (data.isInteractionEnabled()) {
+            Interaction interaction = world.spawn(base, Interaction.class,
+                    e -> applyInteractionSettings(e, data));
+            interactions.put(data.getId(), interaction.getUniqueId());
+        }
+        lastResolved.put(data.getId(), data.getType() == DisplayType.TEXT ? resolveLines(data) : List.of());
         lastRefreshRun.put(data.getId(), System.currentTimeMillis());
     }
 
@@ -251,13 +312,13 @@ public final class DisplayManager {
         return out;
     }
 
-    private void applySettings(TextDisplay entity, DisplayData data, String rawLine) {
+    private void applyTextSettings(TextDisplay entity, DisplayData data, String rawLine) {
         entity.text(renderLine(rawLine));
         entity.setBillboard(data.getBillboard());
         entity.setAlignment(data.getAlignment());
         entity.setShadowed(data.isShadow());
         entity.setSeeThrough(data.isSeeThrough());
-        entity.setViewRange((float) (data.getViewRange() / BLOCKS_PER_VIEW_RANGE_UNIT));
+        applyCommonDisplaySettings(entity, data);
 
         if (data.isBackground()) {
             entity.setDefaultBackground(true);
@@ -265,6 +326,28 @@ public final class DisplayManager {
             entity.setDefaultBackground(false);
             entity.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
         }
+        tagOwned(entity, data.getId(), false);
+    }
+
+    private void applyItemSettings(ItemDisplay entity, DisplayData data) {
+        entity.setItemStack(new ItemStack(data.getItemMaterial()));
+        applyCommonDisplaySettings(entity, data);
+        tagOwned(entity, data.getId(), false);
+    }
+
+    private void applyBlockSettings(BlockDisplay entity, DisplayData data) {
+        Material material = data.getBlockMaterial();
+        BlockData blockData = material.isBlock()
+                ? Bukkit.createBlockData(material)
+                : Bukkit.createBlockData(Material.DIAMOND_BLOCK);
+        entity.setBlock(blockData);
+        applyCommonDisplaySettings(entity, data);
+        tagOwned(entity, data.getId(), false);
+    }
+
+    private void applyCommonDisplaySettings(Display entity, DisplayData data) {
+        entity.setBillboard(data.getBillboard());
+        entity.setViewRange((float) (data.getViewRange() / BLOCKS_PER_VIEW_RANGE_UNIT));
 
         float scale = (float) data.getScale();
         entity.setTransformation(new Transformation(
@@ -274,10 +357,32 @@ public final class DisplayManager {
                 new AxisAngle4f(0.0F, 0.0F, 0.0F, 1.0F)));
 
         entity.setPersistent(true);
+    }
 
+    private void applyInteractionSettings(Interaction entity, DisplayData data) {
+        entity.setInteractionWidth((float) data.getInteractionWidth());
+        entity.setInteractionHeight((float) data.getInteractionHeight());
+        entity.setResponsive(true);
+        entity.setPersistent(true);
+        tagOwned(entity, data.getId(), true);
+    }
+
+    private void tagOwned(Entity entity, String id, boolean interaction) {
         PersistentDataContainer pdc = entity.getPersistentDataContainer();
         pdc.set(ownedKey, PersistentDataType.BYTE, (byte) 1);
-        pdc.set(idKey, PersistentDataType.STRING, data.getId());
+        pdc.set(idKey, PersistentDataType.STRING, id);
+        if (interaction) {
+            pdc.set(interactionKey, PersistentDataType.BYTE, (byte) 1);
+        }
+    }
+
+    private void logViewRange(DisplayData data, int index, Display entity) {
+        if (viewRangeDebug) {
+            plugin.getLogger().info("[view-range] display='" + data.getId()
+                    + "' part=" + index + " uuid=" + entity.getUniqueId()
+                    + " blocks=" + data.getViewRange()
+                    + " appliedMultiplier=" + entity.getViewRange());
+        }
     }
 
     /** raw config line -> placeholders -> legacy color -> Component. */
@@ -322,6 +427,9 @@ public final class DisplayManager {
 
     private boolean refresh(DisplayData data, boolean force) {
         if (!data.isEnabled()) {
+            return false;
+        }
+        if (data.getType() != DisplayType.TEXT) {
             return false;
         }
         if (!force) {
@@ -391,9 +499,6 @@ public final class DisplayManager {
     public void despawn(String id) {
         for (World world : plugin.getServer().getWorlds()) {
             for (Entity entity : world.getEntities()) {
-                if (!(entity instanceof TextDisplay)) {
-                    continue;
-                }
                 PersistentDataContainer pdc = entity.getPersistentDataContainer();
                 if (!isOwned(pdc)) {
                     continue;
@@ -405,6 +510,7 @@ public final class DisplayManager {
             }
         }
         spawned.remove(id);
+        interactions.remove(id);
         lastResolved.remove(id);
         lastRefreshRun.remove(id);
     }
@@ -418,8 +524,7 @@ public final class DisplayManager {
 
     private void removeOwnedIn(Collection<Entity> entities) {
         for (Entity entity : entities) {
-            if (entity instanceof TextDisplay
-                    && isOwned(entity.getPersistentDataContainer())) {
+            if (isOwned(entity.getPersistentDataContainer())) {
                 entity.remove();
             }
         }
@@ -427,6 +532,22 @@ public final class DisplayManager {
 
     private boolean isOwned(PersistentDataContainer pdc) {
         Byte flag = pdc.get(ownedKey, PersistentDataType.BYTE);
+        return flag != null && flag == (byte) 1;
+    }
+
+    public String getOwnedInteractionDisplayId(Entity entity) {
+        if (!(entity instanceof Interaction)) {
+            return null;
+        }
+        PersistentDataContainer pdc = entity.getPersistentDataContainer();
+        if (!isOwned(pdc) || !isInteraction(pdc)) {
+            return null;
+        }
+        return pdc.get(idKey, PersistentDataType.STRING);
+    }
+
+    private boolean isInteraction(PersistentDataContainer pdc) {
+        Byte flag = pdc.get(interactionKey, PersistentDataType.BYTE);
         return flag != null && flag == (byte) 1;
     }
 }

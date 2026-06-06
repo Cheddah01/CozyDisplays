@@ -3,6 +3,7 @@ package gg.cozycrafters.cozydisplays;
 import gg.cozycrafters.cozydisplays.command.DisplayCommand;
 import gg.cozycrafters.cozydisplays.display.DisplayManager;
 import gg.cozycrafters.cozydisplays.gui.DisplayEditor;
+import gg.cozycrafters.cozydisplays.interaction.DisplayInteractionListener;
 import gg.cozycrafters.cozydisplays.placeholder.PlaceholderService;
 import gg.cozycrafters.cozydisplays.storage.DisplayStorage;
 import gg.cozycrafters.cozydisplays.storage.TemplateStorage;
@@ -32,6 +33,12 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
     private double editorNudgeStep;
     private double editorScaleStep;
     private double editorViewRangeStep;
+    private double interactionDefaultWidth;
+    private double interactionDefaultHeight;
+    private int interactionDefaultCooldownSeconds;
+    private double interactionMaxWidth;
+    private double interactionMaxHeight;
+    private int interactionMaxCooldownSeconds;
 
     @Override
     public void onEnable() {
@@ -56,6 +63,8 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
             return;
         }
         getServer().getPluginManager().registerEvents(editor, this);
+        getServer().getPluginManager().registerEvents(
+                new DisplayInteractionListener(manager, placeholders), this);
 
         DisplayCommand executor = new DisplayCommand(this, manager, editor, templates);
         command.setExecutor(executor);
@@ -119,6 +128,13 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
         this.editorNudgeStep = readDouble("editor.nudge-step", 0.1D, 0.001D, 5.0D);
         this.editorScaleStep = readDouble("editor.scale-step", 0.1D, 0.01D, 5.0D);
         this.editorViewRangeStep = readDouble("editor.view-range-step", 4.0D, 1.0D, 64.0D);
+        this.interactionMaxWidth = readDouble("interaction.max-width", 5.0D, 0.1D, 64.0D);
+        this.interactionMaxHeight = readDouble("interaction.max-height", 5.0D, 0.1D, 64.0D);
+        this.interactionMaxCooldownSeconds = readInt("interaction.max-cooldown-seconds", 60, 0, 86_400);
+        this.interactionDefaultWidth = readDouble("interaction.default-width", 1.0D, 0.1D, interactionMaxWidth);
+        this.interactionDefaultHeight = readDouble("interaction.default-height", 1.0D, 0.1D, interactionMaxHeight);
+        this.interactionDefaultCooldownSeconds = readInt("interaction.default-cooldown-seconds",
+                1, 0, interactionMaxCooldownSeconds);
         manager.setDebug(getConfig().getBoolean("debug-placeholder-refresh", false));
         manager.setViewRangeDebug(getConfig().getBoolean("debug-view-range", false));
     }
@@ -184,6 +200,30 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
 
     public double getEditorViewRangeStep() {
         return editorViewRangeStep;
+    }
+
+    public double getInteractionDefaultWidth() {
+        return interactionDefaultWidth;
+    }
+
+    public double getInteractionDefaultHeight() {
+        return interactionDefaultHeight;
+    }
+
+    public int getInteractionDefaultCooldownSeconds() {
+        return interactionDefaultCooldownSeconds;
+    }
+
+    public double getInteractionMaxWidth() {
+        return interactionMaxWidth;
+    }
+
+    public double getInteractionMaxHeight() {
+        return interactionMaxHeight;
+    }
+
+    public int getInteractionMaxCooldownSeconds() {
+        return interactionMaxCooldownSeconds;
     }
 
     /** Default TextDisplay view range; falls back to 12.0 if invalid. */

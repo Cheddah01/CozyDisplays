@@ -1,11 +1,16 @@
 # CozyDisplays
 
-CozyDisplays is a lightweight Paper plugin for creating and managing vanilla `TextDisplay`-based displays. It is intended for floating text, wall signage, spawn notes, and simple hologram-style server displays without the weight of a larger hologram suite.
+CozyDisplays is a lightweight Paper plugin for creating and managing vanilla
+display entities. It supports fixed text displays, item displays, block
+displays, and optional admin-configured click actions without the weight of a
+larger hologram suite.
 
 ## Features
 
 - Create multi-line vanilla `TextDisplay` signage in-game.
+- Create vanilla `ItemDisplay` and `BlockDisplay` entries.
 - Move, nudge, clone, hide, show, scale, and delete displays with admin commands.
+- Add optional clickable actions with safe `Interaction` hitboxes.
 - Snap displays to vertical wall faces for clean signage.
 - Find nearby displays and run read-only display audits for production maintenance.
 - Use a basic admin editor GUI for safe common actions.
@@ -23,7 +28,8 @@ CozyDisplays is a lightweight Paper plugin for creating and managing vanilla `Te
 - Java: 21
 - Optional dependency: PlaceholderAPI
 
-CozyDisplays uses Paper API and vanilla `TextDisplay` entities. It is not intended for Bukkit/Spigot-only servers.
+CozyDisplays uses Paper API and vanilla display entities. It is not intended for
+Bukkit/Spigot-only servers.
 
 ## Installation
 
@@ -42,6 +48,13 @@ Create a display at your location:
 
 ```text
 /display create welcome &6Welcome to spawn
+```
+
+Create item and block displays:
+
+```text
+/display create item diamond_icon DIAMOND
+/display create block beacon_block BEACON
 ```
 
 Add another line:
@@ -74,7 +87,10 @@ Find and edit nearby displays:
 
 | Command | Description |
 | --- | --- |
-| `/display create <id> <text...>` | Create a display at your location. |
+| `/display create <id> <text...>` | Backwards-compatible text display create command. |
+| `/display create text <id> <text...>` | Create a text display at your location. |
+| `/display create item <id> <material>` | Create an item display at your location. |
+| `/display create block <id> <material>` | Create a block display at your location. |
 | `/display addline <id> <text...>` | Add a line to a display. |
 | `/display setline <id> <lineNumber> <text...>` | Replace one line. |
 | `/display removeline <id> <lineNumber>` | Remove one line. |
@@ -94,9 +110,17 @@ Find and edit nearby displays:
 | `/display show <id>` | Respawn a hidden display. |
 | `/display info <id>` | Show saved display settings. |
 | `/display stats` | Show display and entity counts. |
+| `/display setitem <id> <material>` | Change an item display's material. |
+| `/display setblock <id> <material>` | Change a block display's material. |
+| `/display interaction enable <id>` | Spawn a clickable interaction hitbox for a display. |
+| `/display interaction disable <id>` | Disable and remove a display's interaction hitbox. |
+| `/display interaction size <id> <width> <height>` | Set interaction hitbox size. |
+| `/display interaction cooldown <id> <seconds>` | Set click cooldown per player/display/click type. |
+| `/display interaction add <id> <left\|right> <action>` | Add a left or right click action. |
+| `/display interaction clear <id> <left\|right\|all>` | Clear click actions. |
 | `/display template list` | List saved display templates. |
-| `/display template save <templateId> <displayId>` | Save a display's safe text/visual settings as a template. |
-| `/display template apply <templateId> <displayId>` | Apply a template to a display without changing its ID or location. |
+| `/display template save <templateId> <displayId>` | Save a display's safe type/text/material/visual settings as a template. |
+| `/display template apply <templateId> <displayId>` | Apply a template without changing the target ID or location. |
 | `/display list` | List saved displays. |
 | `/display delete <id>` | Delete a display and remove its entities. |
 | `/display reload` | Reload config and saved displays. |
@@ -108,12 +132,52 @@ Find and edit nearby displays:
 - Teleport to the display.
 - Move the display to your current location.
 - Suggest a clone command.
+- Show display type and item/block material when applicable.
+- Suggest `/display setitem` or `/display setblock` for item/block displays.
 - Nudge on X/Y/Z by `editor.nudge-step`.
 - Scale down, reset, or scale up.
 - Decrease or increase view range.
 - Force a placeholder/text refresh.
 
 The editor intentionally does not include one-click deletion.
+
+## Display Types
+
+Saved displays have a `type`:
+
+- `TEXT` uses vanilla `TextDisplay` entities and supports lines, legacy `&`
+  colors, and PlaceholderAPI refresh.
+- `ITEM` uses vanilla `ItemDisplay` entities and stores `item: MATERIAL`.
+- `BLOCK` uses vanilla `BlockDisplay` entities and stores `block: MATERIAL`.
+
+Existing saved displays without a `type` load as `TEXT` for backwards
+compatibility. Placeholder refresh only applies to text displays.
+
+## Click Actions
+
+Click actions are disabled by default. Enabling interaction spawns a vanilla
+`Interaction` entity tagged to the display and cleaned up with the display.
+
+Actions are admin-configured and support these prefixes:
+
+- `player:<command without leading slash>`
+- `console:<command without leading slash>`
+- `message:<message text>`
+
+Examples:
+
+```text
+/display interaction enable rewards_sign
+/display interaction size rewards_sign 1.0 1.0
+/display interaction cooldown rewards_sign 2
+/display interaction add rewards_sign right player:rewards
+/display interaction add rewards_sign left message:&aYou clicked &f%id%&a.
+```
+
+Supported action tokens: `%player%`, `%uuid%`, `%id%`, `%world%`, `%x%`,
+`%y%`, and `%z%`. If PlaceholderAPI is installed, action strings are also
+parsed for the clicking player. Console actions should be treated as trusted
+admin configuration.
 
 ## Permissions
 
@@ -155,6 +219,12 @@ PlaceholderAPI and entity respawn work on busy servers.
 | `refresh.default-viewer-range` | Default viewer range for refresh visibility checks. |
 | `nearby-default-radius` | Default radius for `/display nearby`. |
 | `nearby-max-radius` | Maximum accepted radius for `/display nearby`. |
+| `interaction.default-width` | Default interaction hitbox width. |
+| `interaction.default-height` | Default interaction hitbox height. |
+| `interaction.default-cooldown-seconds` | Default per-player click cooldown. |
+| `interaction.max-width` | Maximum interaction hitbox width. |
+| `interaction.max-height` | Maximum interaction hitbox height. |
+| `interaction.max-cooldown-seconds` | Maximum interaction cooldown. |
 | `wall-offset` | Distance pushed out from a wall by `/display snapwall`. |
 | `default-view-range` | Default render range in blocks for new or older saved displays. |
 | `display-entity-warning-threshold` | Logs a warning when spawned TextDisplay entities exceed this count. |
@@ -187,6 +257,13 @@ Limit render range for dense signage:
 /display viewrange rules 8
 ```
 
+Update item and block materials:
+
+```text
+/display setitem diamond_icon EMERALD
+/display setblock beacon_block DIAMOND_BLOCK
+```
+
 Clone a display and move the clone:
 
 ```text
@@ -209,7 +286,8 @@ Save and apply a template:
 | Placeholders show literally | Install PlaceholderAPI and the needed expansions, then run `/display reload`. |
 | Display is missing after restart | Confirm the saved world is loaded and check the server log for skipped display warnings. |
 | You are not sure which display is nearby | Use `/display nearby [radius]`, then click an entry to prepare `/display edit <id>`. |
-| Spawned displays seem out of sync | Run `/display audit`, then `/display reload` if it reports missing entities. |
+| Spawned displays seem out of sync | Run `/display audit`, then `/display reload` if it reports missing display or interaction entities. |
+| Item or block display does not spawn as expected | Confirm the saved material is valid and, for block displays, is a block material. |
 | Text is hard to position | Use `/display snapwall`, then the nudge shortcuts with small amounts such as `0.03` or `0.05`. |
 | Dense areas cause client lag | Lower `viewrange`, remove unneeded lines, enable refresh only when viewed, or split signage across fewer visible displays. |
 
