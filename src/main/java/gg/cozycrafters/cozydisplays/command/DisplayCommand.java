@@ -3,6 +3,7 @@ package gg.cozycrafters.cozydisplays.command;
 import gg.cozycrafters.cozydisplays.CozyDisplaysPlugin;
 import gg.cozycrafters.cozydisplays.display.DisplayData;
 import gg.cozycrafters.cozydisplays.display.DisplayManager;
+import gg.cozycrafters.cozydisplays.display.DisplayManager.WorldEntityAudit;
 import gg.cozycrafters.cozydisplays.display.DisplayType;
 import gg.cozycrafters.cozydisplays.gui.DisplayEditor;
 import gg.cozycrafters.cozydisplays.storage.TemplateStorage;
@@ -478,6 +479,7 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         int text = 0;
         int item = 0;
         int block = 0;
+        WorldEntityAudit worldAudit = manager.auditWorldEntities();
 
         for (DisplayData data : manager.getDisplays().values()) {
             switch (data.getType()) {
@@ -539,7 +541,13 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(TextUtil.info("Missing worlds: " + missingWorlds));
         sender.sendMessage(TextUtil.info("Missing entities: " + missingEntities));
         sender.sendMessage(TextUtil.info("Missing interactions: " + missingInteractions));
-        sender.sendMessage(TextUtil.info("Orphan interactions: " + manager.countOrphanInteractions()));
+        sender.sendMessage(TextUtil.info("World visual entities: " + worldAudit.visualEntities()));
+        sender.sendMessage(TextUtil.info("World interaction entities: " + worldAudit.interactionEntities()));
+        sender.sendMessage(TextUtil.info("Duplicate visual entities: "
+                + worldAudit.duplicateVisualEntities()));
+        sender.sendMessage(TextUtil.info("Duplicate interaction entities: "
+                + worldAudit.duplicateInteractionEntities()));
+        sender.sendMessage(TextUtil.info("Orphan display entities: " + worldAudit.orphanEntities()));
         sender.sendMessage(TextUtil.info("Invalid materials: " + invalidMaterials));
         sender.sendMessage(TextUtil.info("Auto-rotating displays: " + autoRotating));
         sender.sendMessage(TextUtil.info("Invalid rotation values: " + invalidRotation));
@@ -550,7 +558,9 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(TextUtil.info("Invalid entries: " + invalid));
         if (missingWorlds == 0 && missingEntities == 0 && missingInteractions == 0
                 && invalidMaterials == 0 && invalidRotation == 0
-                && invalid == 0 && manager.countOrphanInteractions() == 0) {
+                && invalid == 0 && worldAudit.duplicateVisualEntities() == 0
+                && worldAudit.duplicateInteractionEntities() == 0
+                && worldAudit.orphanEntities() == 0) {
             sender.sendMessage(TextUtil.success("No issues found."));
         } else {
             sender.sendMessage(TextUtil.info("Use /display reload to respawn missing valid displays."));
@@ -592,7 +602,7 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             return;
         }
         if (args.length >= 5) {
-            sender.sendMessage(TextUtil.info("Roll is not supported in CozyDisplays 1.8.2."));
+            sender.sendMessage(TextUtil.info("Roll is not supported in CozyDisplays 1.8.3."));
         }
         setRotation(data, yaw, pitch);
         manager.saveAll();
@@ -617,7 +627,7 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             return;
         }
         if (args.length >= 5) {
-            sender.sendMessage(TextUtil.info("Roll is not supported in CozyDisplays 1.8.2."));
+            sender.sendMessage(TextUtil.info("Roll is not supported in CozyDisplays 1.8.3."));
         }
         setRotation(data, data.getYaw() + yaw, data.getPitch() + pitch);
         manager.saveAll();
@@ -679,7 +689,7 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             return;
         }
         if (args.length >= 5) {
-            sender.sendMessage(TextUtil.info("Roll is not supported in CozyDisplays 1.8.2."));
+            sender.sendMessage(TextUtil.info("Roll is not supported in CozyDisplays 1.8.3."));
         }
         double max = plugin.getRotationMaxDegreesPerSecond();
         double clampedYaw = clamp(yaw, -max, max);

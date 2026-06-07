@@ -13,7 +13,7 @@ larger hologram suite.
 - Rotate displays manually or enable optional yaw/pitch auto-spin.
 - Add optional clickable actions with safe `Interaction` hitboxes.
 - Snap displays to vertical wall faces for clean signage.
-- Find nearby displays and run read-only display audits for production maintenance.
+- Find nearby displays and run read-only display/entity audits for production maintenance.
 - Use a basic admin editor GUI for safe common actions.
 - Tune per-display render/view range.
 - Tune per-display PlaceholderAPI refresh behavior.
@@ -106,7 +106,7 @@ Rotate a display:
 | `/display movehere <id>` | Move a display to your location. |
 | `/display nearby [radius]` | List nearby displays in your current world. Entries suggest `/display edit <id>` when clicked. |
 | `/display clone <sourceId> <newId>` | Copy a display's editable settings and lines to a new display at your location. |
-| `/display audit` | Show a read-only maintenance report for saved, spawned, missing-world, missing-entity, and invalid displays. |
+| `/display audit` | Show a read-only maintenance report for saved displays, spawned entities, duplicate/orphan CozyDisplays entities, and invalid entries. |
 | `/display edit <id>` | Open the basic admin editor GUI. |
 | `/display rotate <id> <yaw> [pitch]` | Set absolute display yaw and pitch. |
 | `/display rotateby <id> <yawDelta> [pitchDelta]` | Add relative yaw and pitch. |
@@ -142,7 +142,7 @@ Rotate a display:
 | `/display template apply <templateId> <displayId>` | Apply a template without changing the target ID or location. |
 | `/display list` | List saved displays. |
 | `/display delete <id>` | Delete a display and remove its entities. |
-| `/display reload` | Reload config and saved displays. |
+| `/display reload` | Reload config and saved displays, removing CozyDisplays-owned visual and interaction entities before respawning. |
 
 ### Admin editor GUI
 

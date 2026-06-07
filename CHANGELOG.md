@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.8.3] - Reload entity duplication hotfix
+
+- Made `/display reload` stop scheduled placeholder/rotation work before
+  closing editors, removing plugin-owned entities, reloading config/storage,
+  and spawning saved displays once.
+- Added role-aware PersistentDataContainer tags for spawned visual display
+  entities and interaction hitboxes, plus compatibility scoreboard tags for
+  future cleanup/auditing.
+- Made every single-display spawn replace any already loaded CozyDisplays-owned
+  visual or interaction entity for the same display id before spawning fresh.
+- Kept cleanup scoped to CozyDisplays-owned `TextDisplay`, `ItemDisplay`,
+  `BlockDisplay`, and `Interaction` entities.
+- Extended `/display audit` with read-only loaded-world visual, interaction,
+  duplicate, and orphan entity counts.
+- Did not add `/display cleanup`; `/display reload` now performs the safe
+  cleanup path for owned duplicate/orphan entities.
+- Bumped the plugin version to `1.8.3`.
+
 ## [1.8.2] - Refresh defaults performance patch
 
 - Disabled automatic PlaceholderAPI refresh by default for new and missing-key

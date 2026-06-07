@@ -107,15 +107,20 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
 
     /** Reloads config + storage, re-detects PlaceholderAPI, respawns displays. */
     public void reloadAll() {
+        stopPlaceholderRefreshTask();
+        stopAutoRotationTask();
         if (editor != null) {
             editor.closeAll();
+        }
+        if (manager != null) {
+            manager.despawnAll();
         }
         reloadConfig();
         placeholders.detect();
         applyRefreshConfig();
-        manager.reloadFromStorage();
-        restartPlaceholderRefreshTask();
-        restartAutoRotationTask();
+        manager.loadAndSpawnAll();
+        startPlaceholderRefreshTask();
+        startAutoRotationTask();
     }
 
     /* --------------------- placeholder refresh task --------------------- */

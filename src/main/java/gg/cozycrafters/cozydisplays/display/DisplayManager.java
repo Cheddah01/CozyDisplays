@@ -46,7 +46,13 @@ public final class DisplayManager {
 
     private final NamespacedKey ownedKey;
     private final NamespacedKey idKey;
+    private final NamespacedKey roleKey;
     private final NamespacedKey interactionKey;
+    private static final String ROLE_VISUAL = "visual";
+    private static final String ROLE_INTERACTION = "interaction";
+    private static final String OWNED_SCOREBOARD_TAG = "cozydisplays";
+    private static final String VISUAL_SCOREBOARD_TAG = "cozydisplays:visual";
+    private static final String INTERACTION_SCOREBOARD_TAG = "cozydisplays:interaction";
 
     private final Map<String, DisplayData> displays = new LinkedHashMap<>();
     /** Display id -> ordered line entity UUIDs (line index == list index). */
@@ -75,6 +81,7 @@ public final class DisplayManager {
         this.placeholders = placeholders;
         this.ownedKey = new NamespacedKey(plugin, "owned");
         this.idKey = new NamespacedKey(plugin, "id");
+        this.roleKey = new NamespacedKey(plugin, "role");
         this.interactionKey = new NamespacedKey(plugin, "interaction");
     }
 
@@ -138,24 +145,56 @@ public final class DisplayManager {
         return entity instanceof Interaction && entity.isValid();
     }
 
-    public int countOrphanInteractions() {
-        int total = 0;
+    public WorldEntityAudit auditWorldEntities() {
+        Map<String, Integer> visualCounts = new LinkedHashMap<>();
+        Map<String, Integer> interactionCounts = new LinkedHashMap<>();
+        int visualEntities = 0;
+        int interactionEntities = 0;
+        int orphanEntities = 0;
+
         for (World world : plugin.getServer().getWorlds()) {
             for (Entity entity : world.getEntities()) {
-                if (!(entity instanceof Interaction)) {
+                if (!isCozyDisplayEntity(entity)) {
                     continue;
                 }
-                PersistentDataContainer pdc = entity.getPersistentDataContainer();
-                if (!isOwned(pdc) || !isInteraction(pdc)) {
-                    continue;
+                String id = getDisplayId(entity);
+                if (id == null || !displays.containsKey(id)) {
+                    orphanEntities++;
                 }
-                String ownerId = pdc.get(idKey, PersistentDataType.STRING);
-                if (ownerId == null || !displays.containsKey(ownerId)) {
-                    total++;
+                if (isCozyDisplayInteractionEntity(entity)) {
+                    interactionEntities++;
+                    if (id != null) {
+                        interactionCounts.merge(id, 1, Integer::sum);
+                    }
+                } else if (isCozyDisplayVisualEntity(entity)) {
+                    visualEntities++;
+                    if (id != null) {
+                        visualCounts.merge(id, 1, Integer::sum);
+                    }
                 }
             }
         }
-        return total;
+
+        int duplicateVisualEntities = 0;
+        for (Map.Entry<String, Integer> entry : visualCounts.entrySet()) {
+            DisplayData data = displays.get(entry.getKey());
+            int expected = expectedVisualEntityCount(data);
+            if (entry.getValue() > expected) {
+                duplicateVisualEntities += entry.getValue() - expected;
+            }
+        }
+
+        int duplicateInteractionEntities = 0;
+        for (Map.Entry<String, Integer> entry : interactionCounts.entrySet()) {
+            DisplayData data = displays.get(entry.getKey());
+            int expected = data != null && data.isEnabled() && data.isInteractionEnabled() ? 1 : 0;
+            if (entry.getValue() > expected) {
+                duplicateInteractionEntities += entry.getValue() - expected;
+            }
+        }
+
+        return new WorldEntityAudit(visualEntities, interactionEntities,
+                duplicateVisualEntities, duplicateInteractionEntities, orphanEntities);
     }
 
     public int getTotalLineCount() {
@@ -249,6 +288,11 @@ public final class DisplayManager {
     }
 
     public void spawn(DisplayData data) {
+        removeOwnedVisualEntities(data.getId());
+        removeOwnedInteractionEntities(data.getId());
+        spawned.remove(data.getId());
+        interactions.remove(data.getId());
+
         Location base = data.toLocation();
         if (base == null) {
             plugin.getLogger().warning("Cannot spawn display '" + data.getId()
@@ -295,6 +339,7 @@ public final class DisplayManager {
         }
         spawned.put(data.getId(), ids);
         if (data.isInteractionEnabled()) {
+            removeOwnedInteractionEntities(data.getId());
             Interaction interaction = world.spawn(base, Interaction.class,
                     e -> applyInteractionSettings(e, data));
             interactions.put(data.getId(), interaction.getUniqueId());
@@ -376,9 +421,13 @@ public final class DisplayManager {
         PersistentDataContainer pdc = entity.getPersistentDataContainer();
         pdc.set(ownedKey, PersistentDataType.BYTE, (byte) 1);
         pdc.set(idKey, PersistentDataType.STRING, id);
+        pdc.set(roleKey, PersistentDataType.STRING, interaction ? ROLE_INTERACTION : ROLE_VISUAL);
         if (interaction) {
             pdc.set(interactionKey, PersistentDataType.BYTE, (byte) 1);
         }
+        entity.addScoreboardTag(OWNED_SCOREBOARD_TAG);
+        entity.addScoreboardTag("cozydisplays:id:" + id);
+        entity.addScoreboardTag(interaction ? INTERACTION_SCOREBOARD_TAG : VISUAL_SCOREBOARD_TAG);
     }
 
     private void logViewRange(DisplayData data, int index, Display entity) {
@@ -530,25 +579,35 @@ public final class DisplayManager {
 
     /** Removes only the entities owned by the given display id. */
     public void despawn(String id) {
-        for (World world : plugin.getServer().getWorlds()) {
-            for (Entity entity : world.getEntities()) {
-                PersistentDataContainer pdc = entity.getPersistentDataContainer();
-                if (!isOwned(pdc)) {
-                    continue;
-                }
-                String ownerId = pdc.get(idKey, PersistentDataType.STRING);
-                if (id.equals(ownerId)) {
-                    entity.remove();
-                }
-            }
-        }
+        removeOwnedVisualEntities(id);
+        removeOwnedInteractionEntities(id);
         spawned.remove(id);
         interactions.remove(id);
         lastResolved.remove(id);
         lastRefreshRun.remove(id);
     }
 
-    /** Removes every plugin-owned text display in loaded worlds. */
+    private void removeOwnedVisualEntities(String id) {
+        for (World world : plugin.getServer().getWorlds()) {
+            for (Entity entity : world.getEntities()) {
+                if (id.equals(getDisplayId(entity)) && isCozyDisplayVisualEntity(entity)) {
+                    entity.remove();
+                }
+            }
+        }
+    }
+
+    private void removeOwnedInteractionEntities(String id) {
+        for (World world : plugin.getServer().getWorlds()) {
+            for (Entity entity : world.getEntities()) {
+                if (id.equals(getDisplayId(entity)) && isCozyDisplayInteractionEntity(entity)) {
+                    entity.remove();
+                }
+            }
+        }
+    }
+
+    /** Removes every plugin-owned display or interaction entity in loaded worlds. */
     public void cleanupOwnedEntities() {
         for (World world : plugin.getServer().getWorlds()) {
             removeOwnedIn(world.getEntities());
@@ -557,10 +616,45 @@ public final class DisplayManager {
 
     private void removeOwnedIn(Collection<Entity> entities) {
         for (Entity entity : entities) {
-            if (isOwned(entity.getPersistentDataContainer())) {
+            if (isCozyDisplayEntity(entity)) {
                 entity.remove();
             }
         }
+    }
+
+    public boolean isCozyDisplayEntity(Entity entity) {
+        return isOwned(entity.getPersistentDataContainer());
+    }
+
+    public boolean isCozyDisplayVisualEntity(Entity entity) {
+        if (!(entity instanceof Display)) {
+            return false;
+        }
+        PersistentDataContainer pdc = entity.getPersistentDataContainer();
+        if (!isOwned(pdc)) {
+            return false;
+        }
+        String role = pdc.get(roleKey, PersistentDataType.STRING);
+        return ROLE_VISUAL.equals(role) || (!ROLE_INTERACTION.equals(role) && !isInteraction(pdc));
+    }
+
+    public boolean isCozyDisplayInteractionEntity(Entity entity) {
+        if (!(entity instanceof Interaction)) {
+            return false;
+        }
+        PersistentDataContainer pdc = entity.getPersistentDataContainer();
+        if (!isOwned(pdc)) {
+            return false;
+        }
+        String role = pdc.get(roleKey, PersistentDataType.STRING);
+        return ROLE_INTERACTION.equals(role) || isInteraction(pdc);
+    }
+
+    public String getDisplayId(Entity entity) {
+        if (!isCozyDisplayEntity(entity)) {
+            return null;
+        }
+        return entity.getPersistentDataContainer().get(idKey, PersistentDataType.STRING);
     }
 
     private boolean isOwned(PersistentDataContainer pdc) {
@@ -582,5 +676,19 @@ public final class DisplayManager {
     private boolean isInteraction(PersistentDataContainer pdc) {
         Byte flag = pdc.get(interactionKey, PersistentDataType.BYTE);
         return flag != null && flag == (byte) 1;
+    }
+
+    private int expectedVisualEntityCount(DisplayData data) {
+        if (data == null || !data.isEnabled()) {
+            return 0;
+        }
+        return data.getType() == DisplayType.TEXT ? data.getLines().size() : 1;
+    }
+
+    public record WorldEntityAudit(int visualEntities,
+                                   int interactionEntities,
+                                   int duplicateVisualEntities,
+                                   int duplicateInteractionEntities,
+                                   int orphanEntities) {
     }
 }
