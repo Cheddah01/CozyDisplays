@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.8.6] - Text display restart alignment hotfix
+
+- Made TextDisplay spawning apply explicit line width, opacity, interpolation,
+  teleport, alignment, billboard, scale, and transformation metadata every time
+  displays are created, respawned, reloaded, or restored from storage.
+- Hardened cleanup of older plugin-owned display entities that have
+  CozyDisplays scoreboard identity tags but lack newer PersistentDataContainer
+  role metadata, preventing stale restored text entities from overlapping fresh
+  spawns after restart.
+- Kept saved display format, command syntax, text content, glyphs, placeholders,
+  backgrounds, scale, view range, billboard mode, render modes, click actions,
+  and templates unchanged.
+- Bumped the plugin version to `1.8.6`.
+
 ## [1.8.5] - Display command action audit logging
 
 - Added concise audit logging for clickable display `player:` and `console:`

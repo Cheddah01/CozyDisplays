@@ -53,6 +53,9 @@ public final class DisplayManager {
     private static final String OWNED_SCOREBOARD_TAG = "cozydisplays";
     private static final String VISUAL_SCOREBOARD_TAG = "cozydisplays:visual";
     private static final String INTERACTION_SCOREBOARD_TAG = "cozydisplays:interaction";
+    private static final String ID_SCOREBOARD_TAG_PREFIX = "cozydisplays:id:";
+    private static final int TEXT_LINE_WIDTH = 4096;
+    private static final byte TEXT_OPACITY_OPAQUE = (byte) -1;
 
     private final Map<String, DisplayData> displays = new LinkedHashMap<>();
     /** Display id -> ordered line entity UUIDs (line index == list index). */
@@ -313,7 +316,7 @@ public final class DisplayManager {
         switch (data.getType()) {
             case TEXT -> {
                 if (data.getTextRenderMode() == TextRenderMode.SINGLE_ENTITY) {
-                    TextDisplay entity = world.spawn(base, TextDisplay.class,
+                    TextDisplay entity = world.spawn(rotated(base, data), TextDisplay.class,
                             e -> applyTextSettings(e, data, String.join("\n", data.getLines())));
                     ids.add(entity.getUniqueId());
                     logViewRange(data, 0, entity);
@@ -368,6 +371,8 @@ public final class DisplayManager {
         entity.text(renderLine(rawLine));
         entity.setBillboard(data.getBillboard());
         entity.setAlignment(data.getAlignment());
+        entity.setLineWidth(TEXT_LINE_WIDTH);
+        entity.setTextOpacity(TEXT_OPACITY_OPAQUE);
         entity.setShadowed(data.isShadow());
         entity.setSeeThrough(data.isSeeThrough());
         applyCommonDisplaySettings(entity, data);
@@ -401,6 +406,9 @@ public final class DisplayManager {
     private void applyCommonDisplaySettings(Display entity, DisplayData data) {
         entity.setBillboard(data.getBillboard());
         entity.setViewRange((float) (data.getViewRange() / BLOCKS_PER_VIEW_RANGE_UNIT));
+        entity.setInterpolationDelay(0);
+        entity.setInterpolationDuration(0);
+        entity.setTeleportDuration(0);
 
         float scale = (float) data.getScale();
         entity.setTransformation(new Transformation(
@@ -643,7 +651,7 @@ public final class DisplayManager {
     }
 
     public boolean isCozyDisplayEntity(Entity entity) {
-        return isOwned(entity.getPersistentDataContainer());
+        return isOwned(entity);
     }
 
     public boolean isCozyDisplayVisualEntity(Entity entity) {
@@ -651,11 +659,15 @@ public final class DisplayManager {
             return false;
         }
         PersistentDataContainer pdc = entity.getPersistentDataContainer();
-        if (!isOwned(pdc)) {
+        if (!isOwned(entity)) {
             return false;
         }
         String role = pdc.get(roleKey, PersistentDataType.STRING);
-        return ROLE_VISUAL.equals(role) || (!ROLE_INTERACTION.equals(role) && !isInteraction(pdc));
+        return ROLE_VISUAL.equals(role)
+                || entity.getScoreboardTags().contains(VISUAL_SCOREBOARD_TAG)
+                || (!ROLE_INTERACTION.equals(role)
+                && !entity.getScoreboardTags().contains(INTERACTION_SCOREBOARD_TAG)
+                && !isInteraction(pdc));
     }
 
     public boolean isCozyDisplayInteractionEntity(Entity entity) {
@@ -663,18 +675,30 @@ public final class DisplayManager {
             return false;
         }
         PersistentDataContainer pdc = entity.getPersistentDataContainer();
-        if (!isOwned(pdc)) {
+        if (!isOwned(entity)) {
             return false;
         }
         String role = pdc.get(roleKey, PersistentDataType.STRING);
-        return ROLE_INTERACTION.equals(role) || isInteraction(pdc);
+        return ROLE_INTERACTION.equals(role)
+                || entity.getScoreboardTags().contains(INTERACTION_SCOREBOARD_TAG)
+                || isInteraction(pdc);
     }
 
     public String getDisplayId(Entity entity) {
         if (!isCozyDisplayEntity(entity)) {
             return null;
         }
-        return entity.getPersistentDataContainer().get(idKey, PersistentDataType.STRING);
+        String pdcId = entity.getPersistentDataContainer().get(idKey, PersistentDataType.STRING);
+        if (pdcId != null && !pdcId.isBlank()) {
+            return pdcId;
+        }
+        return getScoreboardDisplayId(entity);
+    }
+
+    private boolean isOwned(Entity entity) {
+        return isOwned(entity.getPersistentDataContainer())
+                || (entity.getScoreboardTags().contains(OWNED_SCOREBOARD_TAG)
+                && getScoreboardDisplayId(entity) != null);
     }
 
     private boolean isOwned(PersistentDataContainer pdc) {
@@ -691,6 +715,18 @@ public final class DisplayManager {
             return null;
         }
         return pdc.get(idKey, PersistentDataType.STRING);
+    }
+
+    private String getScoreboardDisplayId(Entity entity) {
+        for (String tag : entity.getScoreboardTags()) {
+            if (tag.startsWith(ID_SCOREBOARD_TAG_PREFIX)) {
+                String id = tag.substring(ID_SCOREBOARD_TAG_PREFIX.length());
+                if (!id.isBlank()) {
+                    return id;
+                }
+            }
+        }
+        return null;
     }
 
     private boolean isInteraction(PersistentDataContainer pdc) {
