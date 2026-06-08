@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.8.5] - Display command action audit logging
+
+- Added concise audit logging for clickable display `player:` and `console:`
+  command actions, including display id, player name/UUID, executor type,
+  rendered command, and dispatch result.
+- Added warning logs for command action dispatch failures and runtime
+  exceptions without changing command execution behavior, message actions,
+  cooldowns, placeholders, or stored display data.
+- Bumped the plugin version to `1.8.5`.
+
 ## [1.8.4] - Text panel styling controls
 
 - Added per-text-display render modes: `LINE_ENTITIES` keeps the existing one

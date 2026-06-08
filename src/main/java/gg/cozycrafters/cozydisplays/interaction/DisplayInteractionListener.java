@@ -104,16 +104,59 @@ public final class DisplayInteractionListener implements Listener {
         if (lower.startsWith("player:")) {
             String command = stripLeadingSlash(rendered.substring("player:".length()).trim());
             if (!command.isBlank()) {
-                player.performCommand(command);
+                runCommandAction(player, data, "player", command);
             }
         } else if (lower.startsWith("console:")) {
             String command = stripLeadingSlash(rendered.substring("console:".length()).trim());
             if (!command.isBlank()) {
-                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
+                runCommandAction(player, data, "console", command);
             }
         } else if (lower.startsWith("message:")) {
             player.sendMessage(TextUtil.legacy(rendered.substring("message:".length()).trim()));
         }
+    }
+
+    private void runCommandAction(Player player, DisplayData data, String executorType, String command) {
+        try {
+            boolean dispatched = "player".equals(executorType)
+                    ? player.performCommand(command)
+                    : Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
+            logCommandAction(player, data, executorType, command, String.valueOf(dispatched), null);
+            if (!dispatched) {
+                logCommandActionFailure(player, data, executorType, command,
+                        "dispatch returned false");
+            }
+        } catch (RuntimeException exception) {
+            logCommandAction(player, data, executorType, command, "exception",
+                    exception.getMessage());
+            logCommandActionFailure(player, data, executorType, command,
+                    "exception: " + exception.getMessage());
+        }
+    }
+
+    private void logCommandAction(Player player, DisplayData data, String executorType,
+                                  String command, String result, String detail) {
+        String message = "Display command action audit: display=" + data.getId()
+                + ", player=" + player.getName()
+                + ", uuid=" + player.getUniqueId()
+                + ", executor=" + executorType
+                + ", result=" + result
+                + ", command='" + command + "'";
+        if (detail != null && !detail.isBlank()) {
+            message += ", detail='" + detail + "'";
+        }
+        Bukkit.getLogger().info("[CozyDisplays] " + message);
+    }
+
+    private void logCommandActionFailure(Player player, DisplayData data, String executorType,
+                                         String command, String reason) {
+        Bukkit.getLogger().warning("[CozyDisplays] Display command action failed: display="
+                + data.getId()
+                + ", player=" + player.getName()
+                + ", uuid=" + player.getUniqueId()
+                + ", executor=" + executorType
+                + ", command='" + command + "'"
+                + ", reason='" + reason + "'");
     }
 
     private String replaceTokens(Player player, DisplayData data, String input) {
