@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.8.4] - Text panel styling controls
+
+- Added per-text-display render modes: `LINE_ENTITIES` keeps the existing one
+  TextDisplay-per-line behavior, while `SINGLE_ENTITY` renders saved lines as
+  one newline-joined TextDisplay for a shared background panel look.
+- Added persistent text panel fields for background color and 0-100%
+  background opacity while preserving the existing background enabled flag.
+- Added text styling commands for render mode, background toggle, background
+  color, background opacity, alignment, line spacing, shadow, see-through, and
+  billboard mode.
+- Extended `/display edit <id>` for text displays with render mode,
+  background, opacity, alignment, line spacing, and background color controls.
+- Extended clone behavior and templates to preserve render mode, background
+  color, and background opacity.
+- Extended `/display audit` with text render mode, background-enabled, and
+  invalid panel setting counts.
+- Added `text-defaults` config keys for new text displays only. Existing saved
+  displays still default to the old line-entity layout when the new keys are
+  missing.
+- Bumped the plugin version to `1.8.4`.
+
 ## [1.8.3] - Reload entity duplication hotfix
 
 - Made `/display reload` stop scheduled placeholder/rotation work before

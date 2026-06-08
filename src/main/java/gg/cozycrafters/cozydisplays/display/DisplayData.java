@@ -25,11 +25,14 @@ public final class DisplayData {
     private float yaw;
     private float pitch;
 
+    private TextRenderMode textRenderMode = TextRenderMode.LINE_ENTITIES;
     private Display.Billboard billboard = Display.Billboard.FIXED;
     private TextDisplay.TextAlignment alignment = TextDisplay.TextAlignment.CENTER;
     private boolean shadow = true;
     private boolean seeThrough = false;
     private boolean background = false;
+    private String backgroundColor = "#000000";
+    private int backgroundOpacity = 90;
     private double lineSpacing = 0.28D;
     private double scale = 1.0D;
     private double viewRange = 12.0D;
@@ -120,6 +123,14 @@ public final class DisplayData {
         return new Location(w, x, y, z, yaw, pitch);
     }
 
+    public TextRenderMode getTextRenderMode() {
+        return textRenderMode;
+    }
+
+    public void setTextRenderMode(TextRenderMode textRenderMode) {
+        this.textRenderMode = textRenderMode == null ? TextRenderMode.LINE_ENTITIES : textRenderMode;
+    }
+
     public Display.Billboard getBillboard() {
         return billboard;
     }
@@ -158,6 +169,22 @@ public final class DisplayData {
 
     public void setBackground(boolean background) {
         this.background = background;
+    }
+
+    public String getBackgroundColor() {
+        return backgroundColor;
+    }
+
+    public void setBackgroundColor(String backgroundColor) {
+        this.backgroundColor = backgroundColor == null ? "#000000" : backgroundColor;
+    }
+
+    public int getBackgroundOpacity() {
+        return backgroundOpacity;
+    }
+
+    public void setBackgroundOpacity(int backgroundOpacity) {
+        this.backgroundOpacity = Math.max(0, Math.min(100, backgroundOpacity));
     }
 
     public double getLineSpacing() {
@@ -345,11 +372,14 @@ public final class DisplayData {
         DisplayData copy = new DisplayData(newId);
         copy.setType(type);
         copy.setRawLocation(world, x, y, z, yaw, pitch);
+        copy.setTextRenderMode(textRenderMode);
         copy.setBillboard(billboard);
         copy.setAlignment(alignment);
         copy.setShadow(shadow);
         copy.setSeeThrough(seeThrough);
         copy.setBackground(background);
+        copy.setBackgroundColor(backgroundColor);
+        copy.setBackgroundOpacity(backgroundOpacity);
         copy.setLineSpacing(lineSpacing);
         copy.setScale(scale);
         copy.setViewRange(viewRange);

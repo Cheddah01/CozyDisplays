@@ -3,6 +3,8 @@ package gg.cozycrafters.cozydisplays.gui;
 import gg.cozycrafters.cozydisplays.CozyDisplaysPlugin;
 import gg.cozycrafters.cozydisplays.display.DisplayData;
 import gg.cozycrafters.cozydisplays.display.DisplayManager;
+import gg.cozycrafters.cozydisplays.display.DisplayType;
+import gg.cozycrafters.cozydisplays.display.TextRenderMode;
 import gg.cozycrafters.cozydisplays.util.TextUtil;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -11,6 +13,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.TextDisplay;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -91,16 +94,24 @@ public final class DisplayEditor implements Listener {
             case 3 -> rotate(player, data, 0.0D, plugin.getEditorRotationStepPitch());
             case 5 -> resetRotation(player, data);
             case 7 -> suggestMaterialEdit(player, data);
+            case 8 -> cycleRenderMode(player, data);
+            case 9 -> toggleBackground(player, data);
             case 10 -> teleport(player, data);
+            case 11 -> changeOpacity(player, data, -plugin.getEditorOpacityStep());
             case 12 -> moveHere(player, data);
+            case 13 -> changeOpacity(player, data, plugin.getEditorOpacityStep());
             case 14 -> forceRefresh(player, data);
+            case 15 -> cycleAlignment(player, data);
             case 16 -> suggestClone(player, data);
+            case 17 -> suggestBackgroundColor(player, data);
             case 19 -> nudge(player, data, -plugin.getEditorNudgeStep(), 0.0D, 0.0D);
             case 20 -> nudge(player, data, plugin.getEditorNudgeStep(), 0.0D, 0.0D);
             case 21 -> nudge(player, data, 0.0D, -plugin.getEditorNudgeStep(), 0.0D);
             case 22 -> nudge(player, data, 0.0D, plugin.getEditorNudgeStep(), 0.0D);
             case 23 -> nudge(player, data, 0.0D, 0.0D, -plugin.getEditorNudgeStep());
             case 24 -> nudge(player, data, 0.0D, 0.0D, plugin.getEditorNudgeStep());
+            case 25 -> changeLineSpacing(player, data, -plugin.getEditorLineSpacingStep());
+            case 26 -> changeLineSpacing(player, data, plugin.getEditorLineSpacingStep());
             case 28 -> setScale(player, data, data.getScale() - plugin.getEditorScaleStep());
             case 29 -> setScale(player, data, 1.0D);
             case 30 -> setScale(player, data, data.getScale() + plugin.getEditorScaleStep());
@@ -151,14 +162,44 @@ public final class DisplayEditor implements Listener {
         inventory.setItem(6, item(Material.OAK_SIGN,
                 plugin.getConfig().getString("editor.items.type.name", "&bType: &f%type%"),
                 plugin.getConfig().getStringList("editor.items.type.lore"), data));
-        if (data.getType() == gg.cozycrafters.cozydisplays.display.DisplayType.ITEM) {
+        if (data.getType() == DisplayType.ITEM) {
             inventory.setItem(7, item(data.getItemMaterial(),
                     plugin.getConfig().getString("editor.items.item-material.name", "&eItem: &f%material%"),
                     plugin.getConfig().getStringList("editor.items.item-material.lore"), data));
-        } else if (data.getType() == gg.cozycrafters.cozydisplays.display.DisplayType.BLOCK) {
+        } else if (data.getType() == DisplayType.BLOCK) {
             inventory.setItem(7, item(data.getBlockMaterial(),
                     plugin.getConfig().getString("editor.items.block-material.name", "&eBlock: &f%material%"),
                     plugin.getConfig().getStringList("editor.items.block-material.lore"), data));
+        } else {
+            inventory.setItem(7, item(Material.PAINTING,
+                    plugin.getConfig().getString("editor.items.panel-info.name", "&bText Panel Info"),
+                    plugin.getConfig().getStringList("editor.items.panel-info.lore"), data));
+        }
+        if (data.getType() == DisplayType.TEXT) {
+            inventory.setItem(8, item(Material.ITEM_FRAME,
+                    plugin.getConfig().getString("editor.items.render-mode-cycle.name", "&bCycle Render Mode"),
+                    List.of("&7Current: &f%render_mode%"), data));
+            inventory.setItem(9, item(Material.BLACK_STAINED_GLASS_PANE,
+                    plugin.getConfig().getString("editor.items.background-toggle.name", "&eToggle Background"),
+                    List.of("&7Current: &f%background%"), data));
+            inventory.setItem(11, item(Material.GRAY_DYE,
+                    plugin.getConfig().getString("editor.items.opacity-down.name", "&cOpacity -"),
+                    List.of("&7Current: &f%opacity%%"), data));
+            inventory.setItem(13, item(Material.WHITE_DYE,
+                    plugin.getConfig().getString("editor.items.opacity-up.name", "&aOpacity +"),
+                    List.of("&7Current: &f%opacity%%"), data));
+            inventory.setItem(15, item(Material.OAK_SIGN,
+                    plugin.getConfig().getString("editor.items.align-cycle.name", "&bCycle Alignment"),
+                    List.of("&7Current: &f%alignment%"), data));
+            inventory.setItem(17, item(Material.MAGENTA_DYE,
+                    plugin.getConfig().getString("editor.items.bgcolor-suggest.name", "&dSet Background Color"),
+                    List.of("&7Current: &f%color%", "&7Click to suggest command."), data));
+            inventory.setItem(25, item(Material.STRING,
+                    plugin.getConfig().getString("editor.items.line-spacing-down.name", "&cLine Spacing -"),
+                    List.of("&7Current: &f%spacing%"), data));
+            inventory.setItem(26, item(Material.IRON_BARS,
+                    plugin.getConfig().getString("editor.items.line-spacing-up.name", "&aLine Spacing +"),
+                    List.of("&7Current: &f%spacing%"), data));
         }
         inventory.setItem(10, item(Material.ENDER_PEARL,
                 plugin.getConfig().getString("editor.items.teleport.name", "&aTeleport"),
@@ -273,6 +314,84 @@ public final class DisplayEditor implements Listener {
                         .hoverEvent(HoverEvent.showText(Component.text("Suggest command")))));
     }
 
+    private void cycleRenderMode(Player player, DisplayData data) {
+        if (!requireText(player, data)) {
+            return;
+        }
+        data.setTextRenderMode(data.getTextRenderMode() == TextRenderMode.LINE_ENTITIES
+                ? TextRenderMode.SINGLE_ENTITY : TextRenderMode.LINE_ENTITIES);
+        manager.saveAll();
+        manager.respawn(data);
+        player.sendMessage(TextUtil.success("Updated render mode for '" + data.getId() + "'."));
+    }
+
+    private void toggleBackground(Player player, DisplayData data) {
+        if (!requireText(player, data)) {
+            return;
+        }
+        data.setBackground(!data.isBackground());
+        manager.saveAll();
+        manager.respawn(data);
+        player.sendMessage(TextUtil.success("Updated background for '" + data.getId() + "'."));
+    }
+
+    private void changeOpacity(Player player, DisplayData data, int delta) {
+        if (!requireText(player, data)) {
+            return;
+        }
+        data.setBackgroundOpacity(data.getBackgroundOpacity() + delta);
+        manager.saveAll();
+        manager.respawn(data);
+        player.sendMessage(TextUtil.success("Set background opacity to "
+                + data.getBackgroundOpacity() + "%."));
+    }
+
+    private void cycleAlignment(Player player, DisplayData data) {
+        if (!requireText(player, data)) {
+            return;
+        }
+        TextDisplay.TextAlignment next = switch (data.getAlignment()) {
+            case LEFT -> TextDisplay.TextAlignment.CENTER;
+            case CENTER -> TextDisplay.TextAlignment.RIGHT;
+            case RIGHT -> TextDisplay.TextAlignment.LEFT;
+        };
+        data.setAlignment(next);
+        manager.saveAll();
+        manager.respawn(data);
+        player.sendMessage(TextUtil.success("Updated alignment for '" + data.getId() + "'."));
+    }
+
+    private void suggestBackgroundColor(Player player, DisplayData data) {
+        if (!requireText(player, data)) {
+            return;
+        }
+        player.closeInventory();
+        String command = "/display bgcolor " + data.getId() + " " + data.getBackgroundColor();
+        player.sendMessage(Component.text("Click to prepare background color command: ")
+                .append(Component.text(command)
+                        .clickEvent(ClickEvent.suggestCommand(command))
+                        .hoverEvent(HoverEvent.showText(Component.text("Suggest command")))));
+    }
+
+    private void changeLineSpacing(Player player, DisplayData data, double delta) {
+        if (!requireText(player, data)) {
+            return;
+        }
+        double clamped = Math.max(0.05D, Math.min(2.0D, data.getLineSpacing() + delta));
+        data.setLineSpacing(clamped);
+        manager.saveAll();
+        manager.respawn(data);
+        player.sendMessage(TextUtil.success("Set line spacing to " + round(clamped) + "."));
+    }
+
+    private boolean requireText(Player player, DisplayData data) {
+        if (data.getType() == DisplayType.TEXT) {
+            return true;
+        }
+        player.sendMessage(TextUtil.info("This control is only available for text displays."));
+        return false;
+    }
+
     private void nudge(Player player, DisplayData data, double dx, double dy, double dz) {
         data.setRawLocation(data.getWorld(), data.getX() + dx, data.getY() + dy, data.getZ() + dz,
                 data.getYaw(), data.getPitch());
@@ -340,6 +459,12 @@ public final class DisplayEditor implements Listener {
                 .replace("%world%", String.valueOf(data.getWorld()))
                 .replace("%type%", data.getType().name())
                 .replace("%material%", materialName(data))
+                .replace("%render_mode%", data.getTextRenderMode().name())
+                .replace("%alignment%", data.getAlignment().name())
+                .replace("%background%", data.isBackground() ? "enabled" : "disabled")
+                .replace("%color%", data.getBackgroundColor())
+                .replace("%opacity%", String.valueOf(data.getBackgroundOpacity()))
+                .replace("%spacing%", round(data.getLineSpacing()))
                 .replace("%yaw%", round(data.getYaw()))
                 .replace("%pitch%", round(data.getPitch()))
                 .replace("%rotation_step_yaw%", round(plugin.getEditorRotationStepYaw()))

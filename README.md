@@ -8,8 +8,12 @@ larger hologram suite.
 ## Features
 
 - Create multi-line vanilla `TextDisplay` signage in-game.
+- Render multiline text as separate editable line entities or as one shared
+  panel-style text entity.
 - Create vanilla `ItemDisplay` and `BlockDisplay` entries.
 - Move, nudge, clone, hide, show, scale, and delete displays with admin commands.
+- Tune text background color, opacity, alignment, line spacing, shadow,
+  see-through, and billboard mode.
 - Rotate displays manually or enable optional yaw/pitch auto-spin.
 - Add optional clickable actions with safe `Interaction` hitboxes.
 - Snap displays to vertical wall faces for clean signage.
@@ -62,6 +66,16 @@ Add another line:
 
 ```text
 /display addline welcome &fRead the rules before building.
+```
+
+Create a shared background panel look:
+
+```text
+/display rendermode welcome single_entity
+/display background welcome enable
+/display bgcolor welcome #000000
+/display bgopacity welcome 70
+/display align welcome center
 ```
 
 Move it to the wall you are looking at:
@@ -132,6 +146,15 @@ Rotate a display:
 | `/display interaction cooldown <id> <seconds>` | Set click cooldown per player/display/click type. |
 | `/display interaction add <id> <left\|right> <action>` | Add a left or right click action. |
 | `/display interaction clear <id> <left\|right\|all>` | Clear click actions. |
+| `/display rendermode <id> <line_entities\|single_entity>` | Set text rendering to separate line entities or one newline-joined entity. |
+| `/display background <id> <enable\|disable>` | Enable or disable a text display background. |
+| `/display bgcolor <id> <#RRGGBB\|named>` | Set text background color. Supported names: black, white, gray, red, green, blue, yellow. |
+| `/display bgopacity <id> <0-100>` | Set text background opacity as a percent. |
+| `/display align <id> <left\|center\|right>` | Set text alignment. |
+| `/display linespacing <id> <value>` | Set the vertical spacing between line entities. In single-entity mode, Minecraft controls newline spacing. |
+| `/display shadow <id> <true\|false>` | Toggle text shadow. |
+| `/display seethrough <id> <true\|false>` | Toggle see-through text rendering. |
+| `/display billboard <id> <fixed\|center\|horizontal\|vertical>` | Set text billboard behavior. |
 | `/display refresh <id>` | Force a one-time placeholder/text refresh. |
 | `/display refresh enable <id>` | Enable automatic placeholder refresh for one display. |
 | `/display refresh disable <id>` | Disable automatic placeholder refresh for one display. |
@@ -159,6 +182,8 @@ Rotate a display:
 - Scale down, reset, or scale up.
 - Decrease or increase view range.
 - Force a placeholder/text refresh.
+- For text displays, view/cycle render mode, background, opacity, alignment,
+  line spacing, and suggest a background color command.
 
 The editor intentionally does not include one-click deletion.
 
@@ -173,6 +198,39 @@ Saved displays have a `type`:
 
 Existing saved displays without a `type` load as `TEXT` for backwards
 compatibility. Placeholder refresh only applies to text displays.
+
+### Text Render Modes
+
+Text displays store content as `lines`. CozyDisplays can render those saved
+lines in two modes:
+
+- `LINE_ENTITIES` is the compatibility mode and remains the default for
+  existing displays. It spawns one `TextDisplay` per saved line, so
+  `line-spacing` controls the vertical offset and enabled backgrounds appear
+  behind each line separately.
+- `SINGLE_ENTITY` spawns one `TextDisplay` and joins saved lines with newline
+  characters. This gives multiline text one shared background panel/block look.
+  Minecraft controls the exact newline spacing in this mode, so the
+  `linespacing` setting is mainly useful when switching back to line-entity
+  mode.
+
+New text displays use `text-defaults.render-mode` from `config.yml`; existing
+saved displays without `text-render-mode` keep `LINE_ENTITIES` so live layouts
+do not change unexpectedly.
+
+Example shared panel setup:
+
+```text
+/display addline welcome &fRead the rules before building.
+/display rendermode welcome single_entity
+/display background welcome enable
+/display bgcolor welcome #000000
+/display bgopacity welcome 70
+/display align welcome center
+```
+
+Automatic PlaceholderAPI refresh remains disabled by default. Manual refresh
+still works through `/display refresh <id>` and the editor refresh button.
 
 ## Rotation
 

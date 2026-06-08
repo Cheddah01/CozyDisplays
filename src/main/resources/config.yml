@@ -11,6 +11,16 @@ refresh:
   default-only-when-viewed: true
   default-viewer-range: 32
 
+# Defaults used only when creating new text displays. Existing saved displays
+# keep their stored settings, and missing saved keys use compatibility defaults.
+text-defaults:
+  render-mode: LINE_ENTITIES
+  background-enabled: true
+  background-color: "#000000"
+  background-opacity: 90
+  alignment: CENTER
+  line-spacing: 0.25
+
 # Default and maximum radius for /display nearby.
 nearby-default-radius: 25
 nearby-max-radius: 100
@@ -63,6 +73,8 @@ editor:
   nudge-step: 0.1
   scale-step: 0.1
   view-range-step: 4
+  opacity-step: 5
+  line-spacing-step: 0.05
   rotation-step-yaw: 15.0
   rotation-step-pitch: 15.0
   items:
@@ -87,6 +99,31 @@ editor:
       name: "&eBlock: &f%material%"
       lore:
         - "&7Click to suggest setblock command."
+    panel-info:
+      name: "&bText Panel Info"
+      lore:
+        - "&7Render Mode: &f%render_mode%"
+        - "&7Alignment: &f%alignment%"
+        - "&7Background: &f%background%"
+        - "&7Color: &f%color%"
+        - "&7Opacity: &f%opacity%%"
+        - "&7Line Spacing: &f%spacing%"
+    render-mode-cycle:
+      name: "&bCycle Render Mode"
+    background-toggle:
+      name: "&eToggle Background"
+    opacity-up:
+      name: "&aOpacity +"
+    opacity-down:
+      name: "&cOpacity -"
+    align-cycle:
+      name: "&bCycle Alignment"
+    line-spacing-up:
+      name: "&aLine Spacing +"
+    line-spacing-down:
+      name: "&cLine Spacing -"
+    bgcolor-suggest:
+      name: "&dSet Background Color"
     rotate-left:
       name: "&eRotate Left"
     rotate-right:

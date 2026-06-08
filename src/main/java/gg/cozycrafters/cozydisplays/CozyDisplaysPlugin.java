@@ -2,14 +2,18 @@ package gg.cozycrafters.cozydisplays;
 
 import gg.cozycrafters.cozydisplays.command.DisplayCommand;
 import gg.cozycrafters.cozydisplays.display.DisplayManager;
+import gg.cozycrafters.cozydisplays.display.TextRenderMode;
 import gg.cozycrafters.cozydisplays.gui.DisplayEditor;
 import gg.cozycrafters.cozydisplays.interaction.DisplayInteractionListener;
 import gg.cozycrafters.cozydisplays.placeholder.PlaceholderService;
 import gg.cozycrafters.cozydisplays.storage.DisplayStorage;
 import gg.cozycrafters.cozydisplays.storage.TemplateStorage;
 import org.bukkit.command.PluginCommand;
+import org.bukkit.entity.TextDisplay;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
+
+import java.util.Locale;
 
 /**
  * Plugin bootstrap: owns the storage + manager + placeholder instances, wires
@@ -34,6 +38,8 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
     private double editorNudgeStep;
     private double editorScaleStep;
     private double editorViewRangeStep;
+    private int editorOpacityStep;
+    private double editorLineSpacingStep;
     private double interactionDefaultWidth;
     private double interactionDefaultHeight;
     private int interactionDefaultCooldownSeconds;
@@ -44,6 +50,12 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
     private double editorRotationStepPitch;
     private int rotationAutoUpdateTicks;
     private double rotationMaxDegreesPerSecond;
+    private TextRenderMode defaultTextRenderMode;
+    private boolean defaultTextBackgroundEnabled;
+    private String defaultTextBackgroundColor;
+    private int defaultTextBackgroundOpacity;
+    private TextDisplay.TextAlignment defaultTextAlignment;
+    private double defaultTextLineSpacing;
 
     @Override
     public void onEnable() {
@@ -143,6 +155,8 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
         this.editorNudgeStep = readDouble("editor.nudge-step", 0.1D, 0.001D, 5.0D);
         this.editorScaleStep = readDouble("editor.scale-step", 0.1D, 0.01D, 5.0D);
         this.editorViewRangeStep = readDouble("editor.view-range-step", 4.0D, 1.0D, 64.0D);
+        this.editorOpacityStep = readInt("editor.opacity-step", 5, 1, 100);
+        this.editorLineSpacingStep = readDouble("editor.line-spacing-step", 0.05D, 0.01D, 1.0D);
         this.interactionMaxWidth = readDouble("interaction.max-width", 5.0D, 0.1D, 64.0D);
         this.interactionMaxHeight = readDouble("interaction.max-height", 5.0D, 0.1D, 64.0D);
         this.interactionMaxCooldownSeconds = readInt("interaction.max-cooldown-seconds", 60, 0, 86_400);
@@ -155,6 +169,12 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
         this.rotationAutoUpdateTicks = readInt("rotation.auto-update-ticks", 2, 1, 200);
         this.rotationMaxDegreesPerSecond = readDouble("rotation.max-degrees-per-second",
                 180.0D, 0.0D, 10_000.0D);
+        this.defaultTextRenderMode = readTextRenderMode("text-defaults.render-mode", TextRenderMode.LINE_ENTITIES);
+        this.defaultTextBackgroundEnabled = getConfig().getBoolean("text-defaults.background-enabled", true);
+        this.defaultTextBackgroundColor = readHexColor("text-defaults.background-color", "#000000");
+        this.defaultTextBackgroundOpacity = readInt("text-defaults.background-opacity", 90, 0, 100);
+        this.defaultTextAlignment = readTextAlignment("text-defaults.alignment", TextDisplay.TextAlignment.CENTER);
+        this.defaultTextLineSpacing = readDouble("text-defaults.line-spacing", 0.25D, 0.05D, 2.0D);
         manager.setDebug(getConfig().getBoolean("debug-placeholder-refresh", false));
         manager.setViewRangeDebug(getConfig().getBoolean("debug-view-range", false));
     }
@@ -241,6 +261,14 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
         return editorViewRangeStep;
     }
 
+    public int getEditorOpacityStep() {
+        return editorOpacityStep;
+    }
+
+    public double getEditorLineSpacingStep() {
+        return editorLineSpacingStep;
+    }
+
     public double getInteractionDefaultWidth() {
         return interactionDefaultWidth;
     }
@@ -275,6 +303,30 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
 
     public double getRotationMaxDegreesPerSecond() {
         return rotationMaxDegreesPerSecond;
+    }
+
+    public TextRenderMode getDefaultTextRenderMode() {
+        return defaultTextRenderMode;
+    }
+
+    public boolean isDefaultTextBackgroundEnabled() {
+        return defaultTextBackgroundEnabled;
+    }
+
+    public String getDefaultTextBackgroundColor() {
+        return defaultTextBackgroundColor;
+    }
+
+    public int getDefaultTextBackgroundOpacity() {
+        return defaultTextBackgroundOpacity;
+    }
+
+    public TextDisplay.TextAlignment getDefaultTextAlignment() {
+        return defaultTextAlignment;
+    }
+
+    public double getDefaultTextLineSpacing() {
+        return defaultTextLineSpacing;
     }
 
     /** Default TextDisplay view range; falls back to 12.0 if invalid. */
@@ -325,6 +377,35 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
             return 1_440;
         }
         return value;
+    }
+
+    private TextRenderMode readTextRenderMode(String path, TextRenderMode fallback) {
+        String raw = getConfig().getString(path, fallback.name());
+        try {
+            return TextRenderMode.valueOf(raw.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            getLogger().warning(path + " is invalid; using " + fallback + ".");
+            return fallback;
+        }
+    }
+
+    private TextDisplay.TextAlignment readTextAlignment(String path, TextDisplay.TextAlignment fallback) {
+        String raw = getConfig().getString(path, fallback.name());
+        try {
+            return TextDisplay.TextAlignment.valueOf(raw.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            getLogger().warning(path + " is invalid; using " + fallback + ".");
+            return fallback;
+        }
+    }
+
+    private String readHexColor(String path, String fallback) {
+        String raw = getConfig().getString(path, fallback);
+        if (raw != null && raw.matches("#[0-9A-Fa-f]{6}")) {
+            return raw.toUpperCase(Locale.ROOT);
+        }
+        getLogger().warning(path + " is invalid; using " + fallback + ".");
+        return fallback;
     }
 
     private int readInt(String path, int fallback, int min, int max) {

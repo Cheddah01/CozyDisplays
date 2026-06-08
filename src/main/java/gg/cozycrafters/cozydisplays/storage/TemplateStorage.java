@@ -2,6 +2,7 @@ package gg.cozycrafters.cozydisplays.storage;
 
 import gg.cozycrafters.cozydisplays.display.DisplayData;
 import gg.cozycrafters.cozydisplays.display.DisplayType;
+import gg.cozycrafters.cozydisplays.display.TextRenderMode;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -48,11 +49,14 @@ public final class TemplateStorage {
         YamlConfiguration cfg = loadFile();
         String base = "templates." + templateId + ".";
         cfg.set(base + "type", source.getType().name());
+        cfg.set(base + "text-render-mode", source.getTextRenderMode().name());
         cfg.set(base + "billboard", source.getBillboard().name().toLowerCase(Locale.ROOT));
         cfg.set(base + "alignment", source.getAlignment().name().toLowerCase(Locale.ROOT));
         cfg.set(base + "shadow", source.isShadow());
         cfg.set(base + "see-through", source.isSeeThrough());
         cfg.set(base + "background", source.isBackground());
+        cfg.set(base + "background-color", source.getBackgroundColor());
+        cfg.set(base + "background-opacity", source.getBackgroundOpacity());
         cfg.set(base + "line-spacing", source.getLineSpacing());
         cfg.set(base + "scale", source.getScale());
         cfg.set(base + "view-range", source.getViewRange());
@@ -85,11 +89,14 @@ public final class TemplateStorage {
         }
 
         target.setType(parseType(sec.getString("type", "TEXT")));
+        target.setTextRenderMode(parseTextRenderMode(sec.getString("text-render-mode", "LINE_ENTITIES")));
         target.setBillboard(parseBillboard(sec.getString("billboard", "fixed")));
         target.setAlignment(parseAlignment(sec.getString("alignment", "center")));
         target.setShadow(sec.getBoolean("shadow", true));
         target.setSeeThrough(sec.getBoolean("see-through", false));
         target.setBackground(sec.getBoolean("background", false));
+        target.setBackgroundColor(normalizeColor(sec.getString("background-color", "#000000")));
+        target.setBackgroundOpacity(readInt(sec, "background-opacity", 90, 0, 100));
         target.setLineSpacing(readDouble(sec, "line-spacing", 0.28D, 0.05D, 2.0D));
         target.setScale(readDouble(sec, "scale", 1.0D, 0.1D, 10.0D));
         target.setViewRange(readDouble(sec, "view-range", 12.0D, 1.0D, 64.0D));
@@ -170,6 +177,21 @@ public final class TemplateStorage {
         } catch (IllegalArgumentException ex) {
             return DisplayType.TEXT;
         }
+    }
+
+    private TextRenderMode parseTextRenderMode(String raw) {
+        try {
+            return TextRenderMode.valueOf(raw.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            return TextRenderMode.LINE_ENTITIES;
+        }
+    }
+
+    private String normalizeColor(String raw) {
+        if (raw != null && raw.matches("#[0-9A-Fa-f]{6}")) {
+            return raw.toUpperCase(Locale.ROOT);
+        }
+        return "#000000";
     }
 
     private Material parseMaterial(String raw, Material fallback) {

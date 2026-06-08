@@ -2,6 +2,7 @@ package gg.cozycrafters.cozydisplays.storage;
 
 import gg.cozycrafters.cozydisplays.display.DisplayData;
 import gg.cozycrafters.cozydisplays.display.DisplayType;
+import gg.cozycrafters.cozydisplays.display.TextRenderMode;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -78,11 +79,14 @@ public final class DisplayStorage {
                 (float) sec.getDouble("yaw", 0.0D),
                 (float) sec.getDouble("pitch", 0.0D));
 
+        data.setTextRenderMode(parseTextRenderMode(sec.getString("text-render-mode", "LINE_ENTITIES")));
         data.setBillboard(parseBillboard(sec.getString("billboard", "fixed")));
         data.setAlignment(parseAlignment(sec.getString("alignment", "center")));
         data.setShadow(sec.getBoolean("shadow", true));
         data.setSeeThrough(sec.getBoolean("see-through", false));
         data.setBackground(sec.getBoolean("background", false));
+        data.setBackgroundColor(normalizeColor(sec.getString("background-color", "#000000")));
+        data.setBackgroundOpacity(readInt(id, sec, "background-opacity", 90, 0, 100));
         data.setLineSpacing(readDouble(id, sec, "line-spacing", 0.28D, 0.05D, 2.0D));
         data.setScale(readDouble(id, sec, "scale", 1.0D, 0.1D, 10.0D));
         data.setViewRange(readDouble(id, sec, "view-range",
@@ -137,11 +141,14 @@ public final class DisplayStorage {
             cfg.set(base + "z", d.getZ());
             cfg.set(base + "yaw", (double) d.getYaw());
             cfg.set(base + "pitch", (double) d.getPitch());
+            cfg.set(base + "text-render-mode", d.getTextRenderMode().name());
             cfg.set(base + "billboard", d.getBillboard().name().toLowerCase(Locale.ROOT));
             cfg.set(base + "alignment", d.getAlignment().name().toLowerCase(Locale.ROOT));
             cfg.set(base + "shadow", d.isShadow());
             cfg.set(base + "see-through", d.isSeeThrough());
             cfg.set(base + "background", d.isBackground());
+            cfg.set(base + "background-color", d.getBackgroundColor());
+            cfg.set(base + "background-opacity", d.getBackgroundOpacity());
             cfg.set(base + "line-spacing", d.getLineSpacing());
             cfg.set(base + "scale", d.getScale());
             cfg.set(base + "view-range", d.getViewRange());
@@ -205,6 +212,21 @@ public final class DisplayStorage {
         } catch (IllegalArgumentException ex) {
             return DisplayType.TEXT;
         }
+    }
+
+    private TextRenderMode parseTextRenderMode(String raw) {
+        try {
+            return TextRenderMode.valueOf(raw.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            return TextRenderMode.LINE_ENTITIES;
+        }
+    }
+
+    private String normalizeColor(String raw) {
+        if (raw != null && raw.matches("#[0-9A-Fa-f]{6}")) {
+            return raw.toUpperCase(Locale.ROOT);
+        }
+        return "#000000";
     }
 
     private Material parseMaterial(String raw, Material fallback) {

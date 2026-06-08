@@ -4,9 +4,9 @@ import gg.cozycrafters.cozydisplays.placeholder.PlaceholderService;
 import gg.cozycrafters.cozydisplays.storage.DisplayStorage;
 import gg.cozycrafters.cozydisplays.util.TextUtil;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.Color;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.block.data.BlockData;
@@ -123,7 +123,7 @@ public final class DisplayManager {
             return false;
         }
         List<UUID> ids = spawned.get(data.getId());
-        int expected = data.getType() == DisplayType.TEXT ? data.getLines().size() : 1;
+        int expected = expectedVisualEntityCount(data);
         if (ids == null || ids.size() != expected) {
             return false;
         }
@@ -312,16 +312,23 @@ public final class DisplayManager {
         List<UUID> ids = new ArrayList<>();
         switch (data.getType()) {
             case TEXT -> {
-                for (int i = 0; i < data.getLines().size(); i++) {
-                    double offsetY = base.getY() - (i * data.getLineSpacing());
-                    Location lineLoc = new Location(world, base.getX(), offsetY, base.getZ(),
+                if (data.getTextRenderMode() == TextRenderMode.SINGLE_ENTITY) {
+                    TextDisplay entity = world.spawn(base, TextDisplay.class,
+                            e -> applyTextSettings(e, data, String.join("\n", data.getLines())));
+                    ids.add(entity.getUniqueId());
+                    logViewRange(data, 0, entity);
+                } else {
+                    for (int i = 0; i < data.getLines().size(); i++) {
+                        double offsetY = base.getY() - (i * data.getLineSpacing());
+                        Location lineLoc = new Location(world, base.getX(), offsetY, base.getZ(),
                             data.getYaw(), data.getPitch());
 
-                    String rawLine = data.getLines().get(i);
-                    TextDisplay entity = world.spawn(lineLoc, TextDisplay.class,
-                            e -> applyTextSettings(e, data, rawLine));
-                    ids.add(entity.getUniqueId());
-                    logViewRange(data, i, entity);
+                        String rawLine = data.getLines().get(i);
+                        TextDisplay entity = world.spawn(lineLoc, TextDisplay.class,
+                                e -> applyTextSettings(e, data, rawLine));
+                        ids.add(entity.getUniqueId());
+                        logViewRange(data, i, entity);
+                    }
                 }
             }
             case ITEM -> {
@@ -366,7 +373,8 @@ public final class DisplayManager {
         applyCommonDisplaySettings(entity, data);
 
         if (data.isBackground()) {
-            entity.setDefaultBackground(true);
+            entity.setDefaultBackground(false);
+            entity.setBackgroundColor(backgroundColor(data));
         } else {
             entity.setDefaultBackground(false);
             entity.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
@@ -444,6 +452,18 @@ public final class DisplayManager {
         return TextUtil.legacy(placeholders.applyPlaceholders(rawLine));
     }
 
+    private Color backgroundColor(DisplayData data) {
+        String hex = data.getBackgroundColor();
+        if (hex == null || !hex.matches("#[0-9A-Fa-f]{6}")) {
+            hex = "#000000";
+        }
+        int red = Integer.parseInt(hex.substring(1, 3), 16);
+        int green = Integer.parseInt(hex.substring(3, 5), 16);
+        int blue = Integer.parseInt(hex.substring(5, 7), 16);
+        int alpha = (int) Math.round(Math.max(0, Math.min(100, data.getBackgroundOpacity())) * 255.0D / 100.0D);
+        return Color.fromARGB(alpha, red, green, blue);
+    }
+
     /* --------------------------- refresh -------------------------------- */
 
     /** Re-resolves placeholders for every spawned display. */
@@ -505,7 +525,7 @@ public final class DisplayManager {
         }
         List<UUID> ids = spawned.get(data.getId());
 
-        boolean structurallyStale = ids == null || ids.size() != data.getLines().size();
+        boolean structurallyStale = ids == null || ids.size() != expectedVisualEntityCount(data);
         if (!structurallyStale) {
             for (UUID uuid : ids) {
                 Entity entity = Bukkit.getEntity(uuid);
@@ -682,7 +702,13 @@ public final class DisplayManager {
         if (data == null || !data.isEnabled()) {
             return 0;
         }
-        return data.getType() == DisplayType.TEXT ? data.getLines().size() : 1;
+        if (data.getType() != DisplayType.TEXT) {
+            return 1;
+        }
+        if (data.getTextRenderMode() == TextRenderMode.SINGLE_ENTITY) {
+            return 1;
+        }
+        return data.getLines().size();
     }
 
     public record WorldEntityAudit(int visualEntities,

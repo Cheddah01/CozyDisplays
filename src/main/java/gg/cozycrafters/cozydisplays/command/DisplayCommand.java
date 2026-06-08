@@ -5,6 +5,7 @@ import gg.cozycrafters.cozydisplays.display.DisplayData;
 import gg.cozycrafters.cozydisplays.display.DisplayManager;
 import gg.cozycrafters.cozydisplays.display.DisplayManager.WorldEntityAudit;
 import gg.cozycrafters.cozydisplays.display.DisplayType;
+import gg.cozycrafters.cozydisplays.display.TextRenderMode;
 import gg.cozycrafters.cozydisplays.gui.DisplayEditor;
 import gg.cozycrafters.cozydisplays.storage.TemplateStorage;
 import gg.cozycrafters.cozydisplays.util.TextUtil;
@@ -14,6 +15,7 @@ import net.kyori.adventure.text.event.HoverEvent;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.entity.Display;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -21,6 +23,7 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.TextDisplay;
 import org.bukkit.util.RayTraceResult;
 import org.jetbrains.annotations.NotNull;
 
@@ -28,6 +31,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
@@ -46,6 +50,8 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             "scale", "viewrange", "viewrangeall", "enabled",
             "hide", "show", "info", "stats",
             "setitem", "setblock", "interaction",
+            "rendermode", "background", "bgcolor", "bgopacity",
+            "align", "linespacing", "shadow", "seethrough", "billboard",
             "refresh", "template", "delete", "list", "reload");
 
     private static final List<String> SCALE_SUGGESTIONS = List.of(
@@ -58,6 +64,22 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
     private static final List<String> REFRESH_ACTIONS = List.of(
             "enable", "disable", "interval", "status");
     private static final List<String> REFRESH_INTERVAL_SUGGESTIONS = List.of("1", "5", "10", "15", "30");
+    private static final List<String> RENDER_MODE_SUGGESTIONS = List.of("line_entities", "single_entity");
+    private static final List<String> BACKGROUND_ACTIONS = List.of("enable", "disable");
+    private static final List<String> COLOR_SUGGESTIONS = List.of(
+            "#000000", "#FFFFFF", "black", "white", "gray", "red", "green", "blue", "yellow");
+    private static final List<String> OPACITY_SUGGESTIONS = List.of("0", "25", "50", "70", "90", "100");
+    private static final List<String> ALIGNMENT_SUGGESTIONS = List.of("left", "center", "right");
+    private static final List<String> LINE_SPACING_SUGGESTIONS = List.of("0.15", "0.20", "0.25", "0.28", "0.35", "0.50");
+    private static final List<String> BILLBOARD_SUGGESTIONS = List.of("fixed", "center", "horizontal", "vertical");
+    private static final Map<String, String> NAMED_COLORS = Map.of(
+            "black", "#000000",
+            "white", "#FFFFFF",
+            "gray", "#808080",
+            "red", "#FF0000",
+            "green", "#00FF00",
+            "blue", "#0000FF",
+            "yellow", "#FFFF00");
 
     private static final double MIN_SCALE = 0.1D;
     private static final double MAX_SCALE = 10.0D;
@@ -129,6 +151,15 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             case "setitem" -> handleSetItem(sender, args);
             case "setblock" -> handleSetBlock(sender, args);
             case "interaction" -> handleInteraction(sender, args);
+            case "rendermode" -> handleRenderMode(sender, args);
+            case "background" -> handleBackground(sender, args);
+            case "bgcolor" -> handleBackgroundColor(sender, args);
+            case "bgopacity" -> handleBackgroundOpacity(sender, args);
+            case "align" -> handleAlign(sender, args);
+            case "linespacing" -> handleLineSpacing(sender, args);
+            case "shadow" -> handleShadow(sender, args);
+            case "seethrough" -> handleSeeThrough(sender, args);
+            case "billboard" -> handleBillboard(sender, args);
             case "refresh" -> handleRefresh(sender, args);
             case "template" -> handleTemplate(sender, args);
             case "delete" -> handleDelete(sender, args);
@@ -202,6 +233,12 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         DisplayData data = new DisplayData(id);
         data.setType(DisplayType.TEXT);
         data.setLocation(player.getLocation());
+        data.setTextRenderMode(plugin.getDefaultTextRenderMode());
+        data.setBackground(plugin.isDefaultTextBackgroundEnabled());
+        data.setBackgroundColor(plugin.getDefaultTextBackgroundColor());
+        data.setBackgroundOpacity(plugin.getDefaultTextBackgroundOpacity());
+        data.setAlignment(plugin.getDefaultTextAlignment());
+        data.setLineSpacing(plugin.getDefaultTextLineSpacing());
         data.addLine(text);
         manager.put(data);
         manager.saveAll();
@@ -475,6 +512,10 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         int refreshAggressive = 0;
         int refreshDeprecated = 0;
         int refreshAlways = 0;
+        int singleEntityText = 0;
+        int lineEntityText = 0;
+        int backgroundEnabled = 0;
+        int invalidPanelSettings = 0;
         int invalid = 0;
         int text = 0;
         int item = 0;
@@ -483,7 +524,22 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
 
         for (DisplayData data : manager.getDisplays().values()) {
             switch (data.getType()) {
-                case TEXT -> text++;
+                case TEXT -> {
+                    text++;
+                    if (data.getTextRenderMode() == TextRenderMode.SINGLE_ENTITY) {
+                        singleEntityText++;
+                    } else {
+                        lineEntityText++;
+                    }
+                    if (data.isBackground()) {
+                        backgroundEnabled++;
+                    }
+                    if (!isValidHexColor(data.getBackgroundColor())
+                            || data.getBackgroundOpacity() < 0
+                            || data.getBackgroundOpacity() > 100) {
+                        invalidPanelSettings++;
+                    }
+                }
                 case ITEM -> item++;
                 case BLOCK -> block++;
             }
@@ -551,13 +607,17 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(TextUtil.info("Invalid materials: " + invalidMaterials));
         sender.sendMessage(TextUtil.info("Auto-rotating displays: " + autoRotating));
         sender.sendMessage(TextUtil.info("Invalid rotation values: " + invalidRotation));
+        sender.sendMessage(TextUtil.info("Text render modes: " + singleEntityText
+                + " single entity, " + lineEntityText + " line entities"));
+        sender.sendMessage(TextUtil.info("Background-enabled text displays: " + backgroundEnabled));
+        sender.sendMessage(TextUtil.info("Invalid panel settings: " + invalidPanelSettings));
         sender.sendMessage(TextUtil.info("Automatic refresh enabled: " + refreshEnabled));
         sender.sendMessage(TextUtil.info("Aggressive refresh intervals: " + refreshAggressive));
         sender.sendMessage(TextUtil.info("Deprecated refresh keys: " + refreshDeprecated));
         sender.sendMessage(TextUtil.info("Refresh without viewer checks: " + refreshAlways));
         sender.sendMessage(TextUtil.info("Invalid entries: " + invalid));
         if (missingWorlds == 0 && missingEntities == 0 && missingInteractions == 0
-                && invalidMaterials == 0 && invalidRotation == 0
+                && invalidMaterials == 0 && invalidRotation == 0 && invalidPanelSettings == 0
                 && invalid == 0 && worldAudit.duplicateVisualEntities() == 0
                 && worldAudit.duplicateInteractionEntities() == 0
                 && worldAudit.orphanEntities() == 0) {
@@ -1269,6 +1329,196 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
                 + data.getId() + "'."));
     }
 
+    /* ------------------------- text styling ---------------------------- */
+
+    private void handleRenderMode(CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage(TextUtil.error("Usage: /display rendermode <id> <line_entities|single_entity>"));
+            return;
+        }
+        DisplayData data = requireTextDisplay(sender, args[1]);
+        if (data == null) {
+            return;
+        }
+        TextRenderMode mode = parseTextRenderMode(args[2]);
+        if (mode == null) {
+            sender.sendMessage(TextUtil.error("Render mode must be line_entities or single_entity."));
+            return;
+        }
+        data.setTextRenderMode(mode);
+        manager.saveAll();
+        manager.respawn(data);
+        sender.sendMessage(TextUtil.success("Updated render mode for '" + data.getId()
+                + "' to " + mode.name().toLowerCase(Locale.ROOT) + "."));
+    }
+
+    private void handleBackground(CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage(TextUtil.error("Usage: /display background <id> <enable|disable>"));
+            return;
+        }
+        DisplayData data = requireTextDisplay(sender, args[1]);
+        if (data == null) {
+            return;
+        }
+        String action = args[2].toLowerCase(Locale.ROOT);
+        if (!action.equals("enable") && !action.equals("disable")) {
+            sender.sendMessage(TextUtil.error("Usage: /display background <id> <enable|disable>"));
+            return;
+        }
+        data.setBackground(action.equals("enable"));
+        manager.saveAll();
+        manager.respawn(data);
+        sender.sendMessage(TextUtil.success("Updated background setting for '" + data.getId() + "'."));
+    }
+
+    private void handleBackgroundColor(CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage(TextUtil.error("Usage: /display bgcolor <id> <#RRGGBB|named>"));
+            return;
+        }
+        DisplayData data = requireTextDisplay(sender, args[1]);
+        if (data == null) {
+            return;
+        }
+        String color = parseColor(args[2]);
+        if (color == null) {
+            sender.sendMessage(TextUtil.error("That color value is invalid. Use #RRGGBB or a supported named color."));
+            return;
+        }
+        data.setBackgroundColor(color);
+        manager.saveAll();
+        manager.respawn(data);
+        sender.sendMessage(TextUtil.success("Updated background color for '" + data.getId() + "'."));
+    }
+
+    private void handleBackgroundOpacity(CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage(TextUtil.error("Usage: /display bgopacity <id> <0-100>"));
+            return;
+        }
+        DisplayData data = requireTextDisplay(sender, args[1]);
+        if (data == null) {
+            return;
+        }
+        Integer opacity = parsePercent(sender, args[2]);
+        if (opacity == null) {
+            sender.sendMessage(TextUtil.error("Opacity must be between 0 and 100."));
+            return;
+        }
+        data.setBackgroundOpacity(opacity);
+        manager.saveAll();
+        manager.respawn(data);
+        sender.sendMessage(TextUtil.success("Updated background opacity for '" + data.getId()
+                + "' to " + opacity + "%."));
+    }
+
+    private void handleAlign(CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage(TextUtil.error("Usage: /display align <id> <left|center|right>"));
+            return;
+        }
+        DisplayData data = requireTextDisplay(sender, args[1]);
+        if (data == null) {
+            return;
+        }
+        TextDisplay.TextAlignment alignment = parseAlignment(args[2]);
+        if (alignment == null) {
+            sender.sendMessage(TextUtil.error("Alignment must be left, center, or right."));
+            return;
+        }
+        data.setAlignment(alignment);
+        manager.saveAll();
+        manager.respawn(data);
+        sender.sendMessage(TextUtil.success("Updated alignment for '" + data.getId()
+                + "' to " + alignment.name().toLowerCase(Locale.ROOT) + "."));
+    }
+
+    private void handleLineSpacing(CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage(TextUtil.error("Usage: /display linespacing <id> <value>"));
+            return;
+        }
+        DisplayData data = requireTextDisplay(sender, args[1]);
+        if (data == null) {
+            return;
+        }
+        Double spacing = parseDouble(sender, args[2], "Line spacing");
+        if (spacing == null || spacing < 0.05D || spacing > 2.0D) {
+            sender.sendMessage(TextUtil.error("Line spacing must be a valid number between 0.05 and 2.0."));
+            return;
+        }
+        data.setLineSpacing(spacing);
+        manager.saveAll();
+        manager.respawn(data);
+        sender.sendMessage(TextUtil.success("Updated line spacing for '" + data.getId()
+                + "' to " + round(spacing) + "."));
+        if (data.getTextRenderMode() == TextRenderMode.SINGLE_ENTITY) {
+            sender.sendMessage(TextUtil.info("Single-entity text uses Minecraft newline spacing; line spacing affects line-entity mode."));
+        }
+    }
+
+    private void handleShadow(CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage(TextUtil.error("Usage: /display shadow <id> <true|false>"));
+            return;
+        }
+        DisplayData data = requireTextDisplay(sender, args[1]);
+        if (data == null) {
+            return;
+        }
+        Boolean value = parseBooleanArg(args[2]);
+        if (value == null) {
+            sender.sendMessage(TextUtil.error("Value must be true or false."));
+            return;
+        }
+        data.setShadow(value);
+        manager.saveAll();
+        manager.respawn(data);
+        sender.sendMessage(TextUtil.success("Updated shadow for '" + data.getId() + "'."));
+    }
+
+    private void handleSeeThrough(CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage(TextUtil.error("Usage: /display seethrough <id> <true|false>"));
+            return;
+        }
+        DisplayData data = requireTextDisplay(sender, args[1]);
+        if (data == null) {
+            return;
+        }
+        Boolean value = parseBooleanArg(args[2]);
+        if (value == null) {
+            sender.sendMessage(TextUtil.error("Value must be true or false."));
+            return;
+        }
+        data.setSeeThrough(value);
+        manager.saveAll();
+        manager.respawn(data);
+        sender.sendMessage(TextUtil.success("Updated see-through for '" + data.getId() + "'."));
+    }
+
+    private void handleBillboard(CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage(TextUtil.error("Usage: /display billboard <id> <fixed|center|horizontal|vertical>"));
+            return;
+        }
+        DisplayData data = requireTextDisplay(sender, args[1]);
+        if (data == null) {
+            return;
+        }
+        Display.Billboard billboard = parseBillboard(args[2]);
+        if (billboard == null) {
+            sender.sendMessage(TextUtil.error("Billboard must be fixed, center, horizontal, or vertical."));
+            return;
+        }
+        data.setBillboard(billboard);
+        manager.saveAll();
+        manager.respawn(data);
+        sender.sendMessage(TextUtil.success("Updated billboard mode for '" + data.getId()
+                + "' to " + billboard.name().toLowerCase(Locale.ROOT) + "."));
+    }
+
     /* ----------------------------- refresh ----------------------------- */
 
     private void handleRefresh(CommandSender sender, String[] args) {
@@ -1563,6 +1813,15 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(TextUtil.info(" /display setitem <id> <material>"));
         sender.sendMessage(TextUtil.info(" /display setblock <id> <material>"));
         sender.sendMessage(TextUtil.info(" /display interaction <enable|disable|size|cooldown|add|clear> ..."));
+        sender.sendMessage(TextUtil.info(" /display rendermode <id> <line_entities|single_entity>"));
+        sender.sendMessage(TextUtil.info(" /display background <id> <enable|disable>"));
+        sender.sendMessage(TextUtil.info(" /display bgcolor <id> <#RRGGBB|named>"));
+        sender.sendMessage(TextUtil.info(" /display bgopacity <id> <0-100>"));
+        sender.sendMessage(TextUtil.info(" /display align <id> <left|center|right>"));
+        sender.sendMessage(TextUtil.info(" /display linespacing <id> <value>"));
+        sender.sendMessage(TextUtil.info(" /display shadow <id> <true|false>"));
+        sender.sendMessage(TextUtil.info(" /display seethrough <id> <true|false>"));
+        sender.sendMessage(TextUtil.info(" /display billboard <id> <fixed|center|horizontal|vertical>"));
         sender.sendMessage(TextUtil.info(" /display refresh <id> - Force a one-time refresh."));
         sender.sendMessage(TextUtil.info(" /display refresh <enable|disable|interval|status> ..."));
         sender.sendMessage(TextUtil.info(" /display template <list|save|apply> ..."));
@@ -1645,6 +1904,38 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             }
         }
 
+        if (sub.equals("rendermode") && args.length == 3) {
+            return filter(RENDER_MODE_SUGGESTIONS, args[2]);
+        }
+
+        if (sub.equals("background") && args.length == 3) {
+            return filter(BACKGROUND_ACTIONS, args[2]);
+        }
+
+        if (sub.equals("bgcolor") && args.length == 3) {
+            return filter(COLOR_SUGGESTIONS, args[2]);
+        }
+
+        if (sub.equals("bgopacity") && args.length == 3) {
+            return filter(OPACITY_SUGGESTIONS, args[2]);
+        }
+
+        if (sub.equals("align") && args.length == 3) {
+            return filter(ALIGNMENT_SUGGESTIONS, args[2]);
+        }
+
+        if (sub.equals("linespacing") && args.length == 3) {
+            return filter(LINE_SPACING_SUGGESTIONS, args[2]);
+        }
+
+        if ((sub.equals("shadow") || sub.equals("seethrough")) && args.length == 3) {
+            return filter(BOOL_SUGGESTIONS, args[2]);
+        }
+
+        if (sub.equals("billboard") && args.length == 3) {
+            return filter(BILLBOARD_SUGGESTIONS, args[2]);
+        }
+
         if (sub.equals("spin")) {
             if (args.length == 2) {
                 List<String> options = new ArrayList<>(manager.getDisplays().keySet());
@@ -1713,9 +2004,22 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
                  "nudge", "up", "down", "left", "right", "forward", "back",
                  "scale", "viewrange", "enabled", "hide", "show", "info",
                  "edit", "clone", "rotate", "rotateby", "face",
-                 "setitem", "setblock", "delete" -> true;
+                 "setitem", "setblock", "rendermode", "background", "bgcolor",
+                 "bgopacity", "align", "linespacing", "shadow", "seethrough",
+                 "billboard", "delete" -> true;
             default -> false;
         };
+    }
+
+    private DisplayData requireTextDisplay(CommandSender sender, String id) {
+        DisplayData data = require(sender, id);
+        if (data == null) {
+            return null;
+        }
+        if (!requireType(sender, data, DisplayType.TEXT)) {
+            return null;
+        }
+        return data;
     }
 
     private boolean requireType(CommandSender sender, DisplayData data, DisplayType expected) {
@@ -1760,6 +2064,76 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(TextUtil.error(label + " must be a valid number."));
             return null;
         }
+    }
+
+    private TextRenderMode parseTextRenderMode(String raw) {
+        String normalized = raw.trim().toUpperCase(Locale.ROOT);
+        if (normalized.equals("LINE")) {
+            normalized = "LINE_ENTITIES";
+        }
+        if (normalized.equals("SINGLE")) {
+            normalized = "SINGLE_ENTITY";
+        }
+        try {
+            return TextRenderMode.valueOf(normalized);
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+    }
+
+    private String parseColor(String raw) {
+        String named = NAMED_COLORS.get(raw.toLowerCase(Locale.ROOT));
+        if (named != null) {
+            return named;
+        }
+        if (isValidHexColor(raw)) {
+            return raw.toUpperCase(Locale.ROOT);
+        }
+        return null;
+    }
+
+    private boolean isValidHexColor(String raw) {
+        return raw != null && raw.matches("#[0-9A-Fa-f]{6}");
+    }
+
+    private Integer parsePercent(CommandSender sender, String raw) {
+        try {
+            int value = Integer.parseInt(raw);
+            if (value < 0 || value > 100) {
+                return null;
+            }
+            return value;
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    private TextDisplay.TextAlignment parseAlignment(String raw) {
+        return switch (raw.toLowerCase(Locale.ROOT)) {
+            case "left" -> TextDisplay.TextAlignment.LEFT;
+            case "center" -> TextDisplay.TextAlignment.CENTER;
+            case "right" -> TextDisplay.TextAlignment.RIGHT;
+            default -> null;
+        };
+    }
+
+    private Display.Billboard parseBillboard(String raw) {
+        try {
+            return Display.Billboard.valueOf(raw.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+    }
+
+    private Boolean parseBooleanArg(String raw) {
+        String normalized = raw.toLowerCase(Locale.ROOT);
+        if (normalized.equals("true")) {
+            return true;
+        }
+        if (normalized.equals("false")) {
+            return false;
+        }
+        return null;
     }
 
     private boolean isValidInteractionAction(String action) {
