@@ -1,9 +1,45 @@
 # CozyDisplays configuration
 
-# How often (in seconds) to re-resolve PlaceholderAPI placeholders on
-# spawned displays. Set to 0 (or less) to disable automatic refreshing.
-# Has no effect when PlaceholderAPI is not installed.
-placeholder-refresh-seconds: 30
+# Per-display PlaceholderAPI refresh defaults. Automatic refresh is disabled
+# by default because frequent text respawns can cause client FPS drops near
+# busy signage. Manual refresh still works through /display refresh <id> and
+# the editor refresh button.
+refresh:
+  default-enabled: false
+  minimum-interval-minutes: 1
+  default-interval-minutes: 5
+  default-only-when-viewed: true
+  default-viewer-range: 32
+
+# Defaults used only when creating new text displays. Existing saved displays
+# keep their stored settings, and missing saved keys use compatibility defaults.
+text-defaults:
+  render-mode: LINE_ENTITIES
+  background-enabled: true
+  background-color: "#000000"
+  background-opacity: 90
+  alignment: CENTER
+  line-spacing: 0.25
+
+# Default and maximum radius for /display nearby.
+nearby-default-radius: 25
+nearby-max-radius: 100
+
+# Optional clickable display actions. Existing displays are not clickable unless
+# interaction.enabled is true in displays.yml or via /display interaction enable.
+interaction:
+  default-width: 1.0
+  default-height: 1.0
+  default-cooldown-seconds: 1
+  max-width: 5.0
+  max-height: 5.0
+  max-cooldown-seconds: 60
+
+# Optional auto-rotation/spin controls. Existing displays do not spin unless
+# rotation.auto.enabled is true in displays.yml or /display spin is used.
+rotation:
+  auto-update-ticks: 2
+  max-degrees-per-second: 180.0
 
 # Distance the display is pushed out from a wall face by /display snapwall.
 # Too low z-fights with the block; too high floats off the wall.
@@ -30,3 +66,239 @@ debug-view-range: false
 # When true, logs a line on every placeholder refresh tick (displays checked
 # and how many were updated). Leave false in production.
 debug-placeholder-refresh: false
+
+# Basic admin editor GUI. Item names and lore support legacy & color codes.
+editor:
+  title: "&8CozyDisplays &7- &f%id%"
+  nudge-step: 0.1
+  scale-step: 0.1
+  view-range-step: 4
+  opacity-step: 5
+  line-spacing-step: 0.05
+  rotation-step-yaw: 15.0
+  rotation-step-pitch: 15.0
+  items:
+    info:
+      name: "&d%id%"
+      lore:
+        - "&7Manage this display."
+        - ""
+        - "&8- &7Type: &f%type%"
+        - "&7World: &f%world%"
+        - "&7Location: &f%x%, %y%, %z%"
+        - ""
+        - "&eUse the controls below."
+    teleport:
+      name: "&aTeleport"
+      lore:
+        - "&7Teleport to this display."
+        - ""
+        - "&8- &7World: &f%world%"
+        - "&8- &7Location: &f%x%, %y%, %z%"
+        - ""
+        - "&eClick to teleport."
+    type:
+      name: "&bDisplay Type"
+      lore:
+        - "&7Shows what this display renders."
+        - ""
+        - "&8- &7Type: &f%type%"
+    item-material:
+      name: "&eItem: &f%material%"
+      lore:
+        - "&7Prepare a material update command."
+        - ""
+        - "&8- &7Current: &f%material%"
+        - ""
+        - "&eClick to suggest command."
+    block-material:
+      name: "&eBlock: &f%material%"
+      lore:
+        - "&7Prepare a block update command."
+        - ""
+        - "&8- &7Current: &f%material%"
+        - ""
+        - "&eClick to suggest command."
+    panel-info:
+      name: "&bText Panel"
+      lore:
+        - "&7Text display settings at a glance."
+        - ""
+        - "&8- &7Render: &f%render_mode%"
+        - "&8- &7Alignment: &f%alignment%"
+        - "&8- &7Background: &f%background%"
+        - "&8- &7Color: &f%color%"
+        - "&8- &7Opacity: &f%opacity%%"
+        - "&8- &7Spacing: &f%spacing%"
+    render-mode-cycle:
+      name: "&bCycle Render Mode"
+      lore:
+        - "&7Change how text lines are rendered."
+        - ""
+        - "&8- &7Current: &f%render_mode%"
+        - ""
+        - "&eClick to cycle mode."
+    background-toggle:
+      name: "&eToggle Background"
+      lore:
+        - "&7Show or hide the text background."
+        - ""
+        - "&8- &7Current: &f%background%"
+        - ""
+        - "&eClick to toggle."
+    opacity-up:
+      name: "&aOpacity +"
+      lore:
+        - "&7Increase the background opacity."
+        - ""
+        - "&8- &7Current: &f%opacity%%"
+        - ""
+        - "&eClick to increase."
+    opacity-down:
+      name: "&cOpacity -"
+      lore:
+        - "&7Reduce the background opacity."
+        - ""
+        - "&8- &7Current: &f%opacity%%"
+        - ""
+        - "&eClick to decrease."
+    align-cycle:
+      name: "&bCycle Alignment"
+      lore:
+        - "&7Adjust text alignment."
+        - ""
+        - "&8- &7Current: &f%alignment%"
+        - ""
+        - "&eClick to cycle."
+    line-spacing-up:
+      name: "&aLine Spacing +"
+      lore:
+        - "&7Add more space between lines."
+        - ""
+        - "&8- &7Current: &f%spacing%"
+        - ""
+        - "&eClick to increase."
+    line-spacing-down:
+      name: "&cLine Spacing -"
+      lore:
+        - "&7Tighten line spacing."
+        - ""
+        - "&8- &7Current: &f%spacing%"
+        - ""
+        - "&eClick to decrease."
+    bgcolor-suggest:
+      name: "&dSet Background Color"
+      lore:
+        - "&7Prepare the color command."
+        - ""
+        - "&8- &7Current: &f%color%"
+        - ""
+        - "&eClick to suggest command."
+    rotate-left:
+      name: "&eRotate Left"
+    rotate-right:
+      name: "&eRotate Right"
+    rotate-up:
+      name: "&eRotate Up"
+    rotate-down:
+      name: "&eRotate Down"
+    rotation-reset:
+      name: "&cReset Rotation"
+    face-me:
+      name: "&bFace Me"
+      lore:
+        - "&7Match your current facing direction."
+        - ""
+        - "&8- &7Yaw: &f%yaw%"
+        - "&8- &7Pitch: &f%pitch%"
+        - ""
+        - "&eClick to face you."
+    move-here:
+      name: "&eMove Here"
+      lore:
+        - "&7Move this display to your location."
+        - ""
+        - "&8- &7World: &f%world%"
+        - ""
+        - "&eClick to move."
+    refresh:
+      name: "&bRefresh"
+      lore:
+        - "&7Force placeholder/text refresh."
+        - ""
+        - "&8- &7Display: &f%id%"
+        - ""
+        - "&eClick to refresh now."
+    clone:
+      name: "&dClone"
+      lore:
+        - "&7Prepare a clone command."
+        - ""
+        - "&8- &7Source: &f%id%"
+        - ""
+        - "&eClick to suggest command."
+    close:
+      name: "&cClose"
+      lore:
+        - "&7Close the editor."
+        - ""
+        - "&eClick to close."
+    nudge:
+      lore:
+        - "&7Move this display by one editor step."
+        - ""
+        - "&8- &7Step: &f%nudge_step% blocks"
+        - ""
+        - "&eClick to nudge."
+    nudge-negative-x:
+      name: "&c-X"
+    nudge-positive-x:
+      name: "&a+X"
+    nudge-negative-y:
+      name: "&c-Y"
+    nudge-positive-y:
+      name: "&a+Y"
+    nudge-negative-z:
+      name: "&c-Z"
+    nudge-positive-z:
+      name: "&a+Z"
+    scale-down:
+      name: "&eScale -"
+      lore:
+        - "&7Make the display smaller."
+        - ""
+        - "&8- &7Current: &f%scale%"
+        - ""
+        - "&eClick to decrease."
+    scale-reset:
+      name: "&eReset Scale"
+      lore:
+        - "&7Return the display to normal size."
+        - ""
+        - "&8- &7Current: &f%scale%"
+        - ""
+        - "&eClick to reset to 1.0."
+    scale-up:
+      name: "&eScale +"
+      lore:
+        - "&7Make the display larger."
+        - ""
+        - "&8- &7Current: &f%scale%"
+        - ""
+        - "&eClick to increase."
+    view-range-down:
+      name: "&bView Range -"
+      lore:
+        - "&7Lower the render distance."
+        - ""
+        - "&8- &7Current: &f%view_range% blocks"
+        - ""
+        - "&eClick to decrease."
+    view-range-up:
+      name: "&bView Range +"
+      lore:
+        - "&7Raise the render distance."
+        - ""
+        - "&8- &7Current: &f%view_range% blocks"
+        - ""
+        - "&eClick to increase."

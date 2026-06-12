@@ -11,6 +11,7 @@ public final class TextUtil {
 
     private static final LegacyComponentSerializer LEGACY =
             LegacyComponentSerializer.legacyAmpersand();
+    private static final Component PREFIX = Component.text("CozyDisplays: ", NamedTextColor.DARK_AQUA);
 
     private TextUtil() {
     }
@@ -28,14 +29,14 @@ public final class TextUtil {
 
     /** Plain colored component for plugin system messages. */
     public static Component info(String message) {
-        return Component.text(message, NamedTextColor.GRAY);
+        return PREFIX.append(Component.text(message, NamedTextColor.GRAY));
     }
 
     public static Component success(String message) {
-        return Component.text(message, NamedTextColor.GREEN);
+        return PREFIX.append(Component.text(message, NamedTextColor.GREEN));
     }
 
     public static Component error(String message) {
-        return Component.text(message, NamedTextColor.RED);
+        return PREFIX.append(Component.text(message, NamedTextColor.RED));
     }
 }
