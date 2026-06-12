@@ -68,6 +68,13 @@ Add another line:
 /display addline welcome &fRead the rules before building.
 ```
 
+Insert a line above an existing line:
+
+```text
+/cozydisplays insertline welcome 1 &eStart here first
+/cozydisplays insertline welcome 2
+```
+
 Create a shared background panel look:
 
 ```text
@@ -115,6 +122,7 @@ Rotate a display:
 | `/display create item <id> <material>` | Create an item display at your location. |
 | `/display create block <id> <material>` | Create a block display at your location. |
 | `/display addline <id> <text...>` | Add a line to a display. |
+| `/display insertline <id> <lineNumber> [text...]` | Insert a line before the 1-based line number. Omitting text inserts a blank line; `line count + 1` appends. Aliases: `lineinsert`, `addlineat`. |
 | `/display setline <id> <lineNumber> <text...>` | Replace one line. |
 | `/display removeline <id> <lineNumber>` | Remove one line. |
 | `/display movehere <id>` | Move a display to your location. |
@@ -355,6 +363,8 @@ Spawn rules sign:
 /display create rules &cRules
 /display addline rules &f1. Be kind
 /display addline rules &f2. No griefing
+/cozydisplays insertline rules 1 &6Please read first
+/cozydisplays insertline rules 3
 ```
 
 Create a lightweight status display with PlaceholderAPI:

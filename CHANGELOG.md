@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.8.9] - Display line insertion command
+
+- Added `/display insertline <id> <lineNumber> [text...]` to insert a new text
+  line at a 1-based position and shift existing lines down.
+- Added `lineinsert` and `addlineat` aliases plus `/cozydisplays` as a command
+  alias for admins who prefer the plugin-name command.
+- Bumped the plugin version to `1.8.9`.
+
 ## [1.8.8] - Background opacity persistence hotfix
 
 - Fixed saved TextDisplay and template loading so canonical `background-opacity`

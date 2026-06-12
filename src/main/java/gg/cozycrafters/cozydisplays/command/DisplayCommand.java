@@ -42,7 +42,8 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
 
     private static final String PERMISSION = "cozydisplays.admin";
     private static final List<String> SUBS = List.of(
-            "create", "addline", "setline", "removeline",
+            "create", "addline", "insertline", "lineinsert", "addlineat",
+            "setline", "removeline",
             "movehere", "nearby", "clone", "audit", "edit",
             "rotate", "rotateby", "face", "spin",
             "snapwall", "nudge",
@@ -125,6 +126,7 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         switch (sub) {
             case "create" -> handleCreate(sender, args);
             case "addline" -> handleAddLine(sender, args);
+            case "insertline", "lineinsert", "addlineat" -> handleInsertLine(sender, args);
             case "setline" -> handleSetLine(sender, args);
             case "removeline" -> handleRemoveLine(sender, args);
             case "movehere" -> handleMoveHere(sender, args);
@@ -317,6 +319,32 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         manager.saveAll();
         manager.respawn(data);
         sender.sendMessage(TextUtil.success("Added line to '" + data.getId()
+                + "' (now " + data.getLines().size() + " lines)."));
+    }
+
+    private void handleInsertLine(CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage(TextUtil.error("Usage: /display insertline <id> <lineNumber> [text...]"));
+            return;
+        }
+        DisplayData data = require(sender, args[1]);
+        if (data == null) {
+            return;
+        }
+        if (!requireType(sender, data, DisplayType.TEXT)) {
+            return;
+        }
+        Integer line = parseInsertLine(sender, args[2], data.getLines().size());
+        if (line == null) {
+            return;
+        }
+        String text = args.length >= 4 ? join(args, 3) : "";
+        data.getLines().add(line - 1, text);
+        manager.saveAll();
+        manager.respawn(data);
+        sender.sendMessage(TextUtil.success("Inserted "
+                + (text.isEmpty() ? "a blank line" : "line")
+                + " at line " + line + " of '" + data.getId()
                 + "' (now " + data.getLines().size() + " lines)."));
     }
 
@@ -1762,6 +1790,22 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         return line;
     }
 
+    private Integer parseInsertLine(CommandSender sender, String raw, int size) {
+        int line;
+        try {
+            line = Integer.parseInt(raw);
+        } catch (NumberFormatException ex) {
+            sender.sendMessage(TextUtil.error("Line number must be a whole number."));
+            return null;
+        }
+        int max = size + 1;
+        if (line < 1 || line > max) {
+            sender.sendMessage(TextUtil.error("Insert line number must be between 1 and " + max + "."));
+            return null;
+        }
+        return line;
+    }
+
     private Integer parsePositiveInt(CommandSender sender, String raw, String errorMessage) {
         try {
             int value = Integer.parseInt(raw);
@@ -1787,6 +1831,7 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(TextUtil.info(" /display create item <id> <material>"));
         sender.sendMessage(TextUtil.info(" /display create block <id> <material>"));
         sender.sendMessage(TextUtil.info(" /display addline <id> <text...>"));
+        sender.sendMessage(TextUtil.info(" /display insertline <id> <lineNumber> [text...]"));
         sender.sendMessage(TextUtil.info(" /display setline <id> <lineNumber> <text...>"));
         sender.sendMessage(TextUtil.info(" /display removeline <id> <lineNumber>"));
         sender.sendMessage(TextUtil.info(" /display movehere <id>"));
@@ -1947,11 +1992,15 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             }
         }
 
-        if (args.length == 3 && (sub.equals("setline") || sub.equals("removeline"))) {
+        if (args.length == 3 && (sub.equals("setline") || sub.equals("removeline")
+                || isInsertLineSubcommand(sub))) {
             DisplayData data = manager.get(args[1]);
             if (data != null) {
                 List<String> numbers = new ArrayList<>();
-                for (int i = 1; i <= data.getLines().size(); i++) {
+                int max = isInsertLineSubcommand(sub)
+                        ? data.getLines().size() + 1
+                        : data.getLines().size();
+                for (int i = 1; i <= max; i++) {
                     numbers.add(String.valueOf(i));
                 }
                 return filter(numbers, args[2]);
@@ -2000,7 +2049,8 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
 
     private boolean needsId(String sub) {
         return switch (sub) {
-            case "addline", "setline", "removeline", "movehere", "snapwall",
+            case "addline", "insertline", "lineinsert", "addlineat",
+                 "setline", "removeline", "movehere", "snapwall",
                  "nudge", "up", "down", "left", "right", "forward", "back",
                  "scale", "viewrange", "enabled", "hide", "show", "info",
                  "edit", "clone", "rotate", "rotateby", "face",
@@ -2009,6 +2059,10 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
                  "billboard", "delete" -> true;
             default -> false;
         };
+    }
+
+    private boolean isInsertLineSubcommand(String sub) {
+        return sub.equals("insertline") || sub.equals("lineinsert") || sub.equals("addlineat");
     }
 
     private DisplayData requireTextDisplay(CommandSender sender, String id) {
