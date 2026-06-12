@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.8.8] - Background opacity persistence hotfix
+
+- Fixed saved TextDisplay and template loading so canonical `background-opacity`
+  and legacy `backgroundOpacity` values both persist across restart, reload,
+  refresh, respawn, and rebuild paths.
+- Made missing background opacity fields fall back to the configured text
+  default without overwriting existing custom opacity values.
+- Bumped the plugin version to `1.8.8`.
+
 ## [1.8.7] - Message and menu polish
 
 - Polished player-facing messages for consistency and readability.

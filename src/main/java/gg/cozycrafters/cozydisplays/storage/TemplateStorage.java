@@ -96,7 +96,7 @@ public final class TemplateStorage {
         target.setSeeThrough(sec.getBoolean("see-through", false));
         target.setBackground(sec.getBoolean("background", false));
         target.setBackgroundColor(normalizeColor(sec.getString("background-color", "#000000")));
-        target.setBackgroundOpacity(readInt(sec, "background-opacity", 90, 0, 100));
+        target.setBackgroundOpacity(readBackgroundOpacity(sec));
         target.setLineSpacing(readDouble(sec, "line-spacing", 0.28D, 0.05D, 2.0D));
         target.setScale(readDouble(sec, "scale", 1.0D, 0.1D, 10.0D));
         target.setViewRange(readDouble(sec, "view-range", 12.0D, 1.0D, 64.0D));
@@ -216,6 +216,21 @@ public final class TemplateStorage {
             value = sec.getInt(path, fallback);
         }
         return Math.max(min, Math.min(max, value));
+    }
+
+    private int readDefaultBackgroundOpacity() {
+        int value = plugin.getConfig().getInt("text-defaults.background-opacity", 90);
+        return Math.max(0, Math.min(100, value));
+    }
+
+    private int readBackgroundOpacity(ConfigurationSection sec) {
+        if (sec.contains("background-opacity")) {
+            return readInt(sec, "background-opacity", readDefaultBackgroundOpacity(), 0, 100);
+        }
+        if (sec.contains("backgroundOpacity")) {
+            return readInt(sec, "backgroundOpacity", readDefaultBackgroundOpacity(), 0, 100);
+        }
+        return readDefaultBackgroundOpacity();
     }
 
     private int secondsToMinutes(int seconds) {

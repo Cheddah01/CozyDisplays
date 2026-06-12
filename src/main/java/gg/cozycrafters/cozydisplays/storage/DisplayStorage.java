@@ -86,7 +86,7 @@ public final class DisplayStorage {
         data.setSeeThrough(sec.getBoolean("see-through", false));
         data.setBackground(sec.getBoolean("background", false));
         data.setBackgroundColor(normalizeColor(sec.getString("background-color", "#000000")));
-        data.setBackgroundOpacity(readInt(id, sec, "background-opacity", 90, 0, 100));
+        data.setBackgroundOpacity(readBackgroundOpacity(id, sec));
         data.setLineSpacing(readDouble(id, sec, "line-spacing", 0.28D, 0.05D, 2.0D));
         data.setScale(readDouble(id, sec, "scale", 1.0D, 0.1D, 10.0D));
         data.setViewRange(readDouble(id, sec, "view-range",
@@ -255,6 +255,21 @@ public final class DisplayStorage {
         int value = readConfigMinutes("refresh.default-interval-minutes",
                 "refresh.default-interval-seconds", 5);
         return Math.max(minimum, Math.min(1_440, value));
+    }
+
+    private int readDefaultBackgroundOpacity() {
+        int value = plugin.getConfig().getInt("text-defaults.background-opacity", 90);
+        return Math.max(0, Math.min(100, value));
+    }
+
+    private int readBackgroundOpacity(String id, ConfigurationSection sec) {
+        if (sec.contains("background-opacity")) {
+            return readInt(id, sec, "background-opacity", readDefaultBackgroundOpacity(), 0, 100);
+        }
+        if (sec.contains("backgroundOpacity")) {
+            return readInt(id, sec, "backgroundOpacity", readDefaultBackgroundOpacity(), 0, 100);
+        }
+        return readDefaultBackgroundOpacity();
     }
 
     private int readMinimumRefreshIntervalMinutes() {
