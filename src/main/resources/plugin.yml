@@ -12,7 +12,7 @@ commands:
     usage: /display <create|addline|setline|removeline|movehere|nearby|clone|audit|edit|rotate|rotateby|face|spin|snapwall|nudge|up|down|left|right|forward|back|scale|viewrange|viewrangeall|enabled|hide|show|info|stats|setitem|setblock|interaction|rendermode|background|bgcolor|bgopacity|align|linespacing|shadow|seethrough|billboard|refresh|template|delete|list|reload>
     aliases: [cozydisplay]
     permission: cozydisplays.admin
-    permission-message: You do not have permission to use CozyDisplays.
+    permission-message: You need the cozydisplays.admin permission to use this.
 
 permissions:
   cozydisplays.admin:

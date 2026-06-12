@@ -51,7 +51,7 @@ public final class DisplayEditor implements Listener {
 
         Inventory inventory = Bukkit.createInventory(new EditorHolder(id), SIZE,
                 TextUtil.legacy(format(plugin.getConfig().getString(
-                        "editor.title", "&8Display Editor: %id%"), data)));
+                        "editor.title", "&8CozyDisplays &7- &f%id%"), data)));
         populate(inventory, data);
         player.openInventory(inventory);
         player.sendMessage(TextUtil.success("Opened editor for '" + id + "'."));
@@ -178,28 +178,52 @@ public final class DisplayEditor implements Listener {
         if (data.getType() == DisplayType.TEXT) {
             inventory.setItem(8, item(Material.ITEM_FRAME,
                     plugin.getConfig().getString("editor.items.render-mode-cycle.name", "&bCycle Render Mode"),
-                    List.of("&7Current: &f%render_mode%"), data));
+                    configLore("editor.items.render-mode-cycle.lore",
+                            List.of("&7Change how text lines are rendered.", "",
+                                    "&8- &7Current: &f%render_mode%", "",
+                                    "&eClick to cycle mode.")), data));
             inventory.setItem(9, item(Material.BLACK_STAINED_GLASS_PANE,
                     plugin.getConfig().getString("editor.items.background-toggle.name", "&eToggle Background"),
-                    List.of("&7Current: &f%background%"), data));
+                    configLore("editor.items.background-toggle.lore",
+                            List.of("&7Show or hide the text background.", "",
+                                    "&8- &7Current: &f%background%", "",
+                                    "&eClick to toggle.")), data));
             inventory.setItem(11, item(Material.GRAY_DYE,
                     plugin.getConfig().getString("editor.items.opacity-down.name", "&cOpacity -"),
-                    List.of("&7Current: &f%opacity%%"), data));
+                    configLore("editor.items.opacity-down.lore",
+                            List.of("&7Reduce the background opacity.", "",
+                                    "&8- &7Current: &f%opacity%%", "",
+                                    "&eClick to decrease.")), data));
             inventory.setItem(13, item(Material.WHITE_DYE,
                     plugin.getConfig().getString("editor.items.opacity-up.name", "&aOpacity +"),
-                    List.of("&7Current: &f%opacity%%"), data));
+                    configLore("editor.items.opacity-up.lore",
+                            List.of("&7Increase the background opacity.", "",
+                                    "&8- &7Current: &f%opacity%%", "",
+                                    "&eClick to increase.")), data));
             inventory.setItem(15, item(Material.OAK_SIGN,
                     plugin.getConfig().getString("editor.items.align-cycle.name", "&bCycle Alignment"),
-                    List.of("&7Current: &f%alignment%"), data));
+                    configLore("editor.items.align-cycle.lore",
+                            List.of("&7Adjust text alignment.", "",
+                                    "&8- &7Current: &f%alignment%", "",
+                                    "&eClick to cycle.")), data));
             inventory.setItem(17, item(Material.MAGENTA_DYE,
                     plugin.getConfig().getString("editor.items.bgcolor-suggest.name", "&dSet Background Color"),
-                    List.of("&7Current: &f%color%", "&7Click to suggest command."), data));
+                    configLore("editor.items.bgcolor-suggest.lore",
+                            List.of("&7Prepare the color command.", "",
+                                    "&8- &7Current: &f%color%", "",
+                                    "&eClick to suggest command.")), data));
             inventory.setItem(25, item(Material.STRING,
                     plugin.getConfig().getString("editor.items.line-spacing-down.name", "&cLine Spacing -"),
-                    List.of("&7Current: &f%spacing%"), data));
+                    configLore("editor.items.line-spacing-down.lore",
+                            List.of("&7Tighten line spacing.", "",
+                                    "&8- &7Current: &f%spacing%", "",
+                                    "&eClick to decrease.")), data));
             inventory.setItem(26, item(Material.IRON_BARS,
                     plugin.getConfig().getString("editor.items.line-spacing-up.name", "&aLine Spacing +"),
-                    List.of("&7Current: &f%spacing%"), data));
+                    configLore("editor.items.line-spacing-up.lore",
+                            List.of("&7Add more space between lines.", "",
+                                    "&8- &7Current: &f%spacing%", "",
+                                    "&eClick to increase.")), data));
         }
         inventory.setItem(10, item(Material.ENDER_PEARL,
                 plugin.getConfig().getString("editor.items.teleport.name", "&aTeleport"),
@@ -214,31 +238,66 @@ public final class DisplayEditor implements Listener {
                 plugin.getConfig().getString("editor.items.clone.name", "&dClone"),
                 plugin.getConfig().getStringList("editor.items.clone.lore"), data));
 
-        inventory.setItem(19, item(Material.RED_CONCRETE, "&c-X", List.of("&7Nudge by editor step."), data));
-        inventory.setItem(20, item(Material.LIME_CONCRETE, "&a+X", List.of("&7Nudge by editor step."), data));
-        inventory.setItem(21, item(Material.RED_CONCRETE, "&c-Y", List.of("&7Nudge by editor step."), data));
-        inventory.setItem(22, item(Material.LIME_CONCRETE, "&a+Y", List.of("&7Nudge by editor step."), data));
-        inventory.setItem(23, item(Material.RED_CONCRETE, "&c-Z", List.of("&7Nudge by editor step."), data));
-        inventory.setItem(24, item(Material.LIME_CONCRETE, "&a+Z", List.of("&7Nudge by editor step."), data));
+        List<String> nudgeLore = configLore("editor.items.nudge.lore",
+                List.of("&7Move this display by one editor step.", "",
+                        "&8- &7Step: &f%nudge_step% blocks", "",
+                        "&eClick to nudge."));
+        inventory.setItem(19, item(Material.RED_CONCRETE,
+                plugin.getConfig().getString("editor.items.nudge-negative-x.name", "&c-X"), nudgeLore, data));
+        inventory.setItem(20, item(Material.LIME_CONCRETE,
+                plugin.getConfig().getString("editor.items.nudge-positive-x.name", "&a+X"), nudgeLore, data));
+        inventory.setItem(21, item(Material.RED_CONCRETE,
+                plugin.getConfig().getString("editor.items.nudge-negative-y.name", "&c-Y"), nudgeLore, data));
+        inventory.setItem(22, item(Material.LIME_CONCRETE,
+                plugin.getConfig().getString("editor.items.nudge-positive-y.name", "&a+Y"), nudgeLore, data));
+        inventory.setItem(23, item(Material.RED_CONCRETE,
+                plugin.getConfig().getString("editor.items.nudge-negative-z.name", "&c-Z"), nudgeLore, data));
+        inventory.setItem(24, item(Material.LIME_CONCRETE,
+                plugin.getConfig().getString("editor.items.nudge-positive-z.name", "&a+Z"), nudgeLore, data));
 
-        inventory.setItem(28, item(Material.SMALL_AMETHYST_BUD, "&eScale -",
-                List.of("&7Current: &f%scale%"), data));
-        inventory.setItem(29, item(Material.AMETHYST_CLUSTER, "&eScale Reset",
-                List.of("&7Set scale to &f1.0&7."), data));
-        inventory.setItem(30, item(Material.LARGE_AMETHYST_BUD, "&eScale +",
-                List.of("&7Current: &f%scale%"), data));
+        inventory.setItem(28, item(Material.SMALL_AMETHYST_BUD,
+                plugin.getConfig().getString("editor.items.scale-down.name", "&eScale -"),
+                configLore("editor.items.scale-down.lore",
+                        List.of("&7Make the display smaller.", "",
+                                "&8- &7Current: &f%scale%", "",
+                                "&eClick to decrease.")), data));
+        inventory.setItem(29, item(Material.AMETHYST_CLUSTER,
+                plugin.getConfig().getString("editor.items.scale-reset.name", "&eReset Scale"),
+                configLore("editor.items.scale-reset.lore",
+                        List.of("&7Return the display to normal size.", "",
+                                "&8- &7Current: &f%scale%", "",
+                                "&eClick to reset to 1.0.")), data));
+        inventory.setItem(30, item(Material.LARGE_AMETHYST_BUD,
+                plugin.getConfig().getString("editor.items.scale-up.name", "&eScale +"),
+                configLore("editor.items.scale-up.lore",
+                        List.of("&7Make the display larger.", "",
+                                "&8- &7Current: &f%scale%", "",
+                                "&eClick to increase.")), data));
 
-        inventory.setItem(32, item(Material.SPYGLASS, "&bView Range -",
-                List.of("&7Current: &f%view_range% blocks"), data));
-        inventory.setItem(33, item(Material.SPYGLASS, "&bView Range +",
-                List.of("&7Current: &f%view_range% blocks"), data));
+        inventory.setItem(32, item(Material.SPYGLASS,
+                plugin.getConfig().getString("editor.items.view-range-down.name", "&bView Range -"),
+                configLore("editor.items.view-range-down.lore",
+                        List.of("&7Lower the render distance.", "",
+                                "&8- &7Current: &f%view_range% blocks", "",
+                                "&eClick to decrease.")), data));
+        inventory.setItem(33, item(Material.SPYGLASS,
+                plugin.getConfig().getString("editor.items.view-range-up.name", "&bView Range +"),
+                configLore("editor.items.view-range-up.lore",
+                        List.of("&7Raise the render distance.", "",
+                                "&8- &7Current: &f%view_range% blocks", "",
+                                "&eClick to increase.")), data));
         inventory.setItem(34, item(Material.PLAYER_HEAD,
                 plugin.getConfig().getString("editor.items.face-me.name", "&bFace Me"),
-                List.of("&7Match your current yaw/pitch.",
-                        "&7Yaw: &f%yaw%", "&7Pitch: &f%pitch%"), data));
+                configLore("editor.items.face-me.lore",
+                        List.of("&7Match your current facing direction.", "",
+                                "&8- &7Yaw: &f%yaw%",
+                                "&8- &7Pitch: &f%pitch%", "",
+                                "&eClick to face you.")), data));
         inventory.setItem(35, item(Material.BARRIER,
                 plugin.getConfig().getString("editor.items.close.name", "&cClose"),
-                List.of(), data));
+                configLore("editor.items.close.lore",
+                        List.of("&7Close the editor.", "",
+                                "&eClick to close.")), data));
     }
 
     private ItemStack item(Material material, String name, List<String> lore, DisplayData data) {
@@ -257,9 +316,17 @@ public final class DisplayEditor implements Listener {
 
     private List<String> defaultLore(String name) {
         if (name != null && name.contains("%id%")) {
-            return List.of("&7World: &f%world%", "&7Location: &f%x%, %y%, %z%");
+            return List.of("&7Manage this display.", "",
+                    "&8- &7World: &f%world%",
+                    "&8- &7Location: &f%x%, %y%, %z%", "",
+                    "&eUse the buttons below to edit.");
         }
         return List.of();
+    }
+
+    private List<String> configLore(String path, List<String> fallback) {
+        List<String> configured = plugin.getConfig().getStringList(path);
+        return configured.isEmpty() ? fallback : configured;
     }
 
     private void teleport(Player player, DisplayData data) {
@@ -444,10 +511,14 @@ public final class DisplayEditor implements Listener {
 
     private List<String> rotationLore() {
         return List.of(
-                "&7Yaw: &f%yaw%",
-                "&7Pitch: &f%pitch%",
-                "&7Yaw step: &f%rotation_step_yaw%",
-                "&7Pitch step: &f%rotation_step_pitch%");
+                "&7Adjust this display's rotation.",
+                "",
+                "&8- &7Yaw: &f%yaw%",
+                "&8- &7Pitch: &f%pitch%",
+                "&8- &7Yaw step: &f%rotation_step_yaw%",
+                "&8- &7Pitch step: &f%rotation_step_pitch%",
+                "",
+                "&eClick to rotate.");
     }
 
     private String format(String input, DisplayData data) {
@@ -469,6 +540,7 @@ public final class DisplayEditor implements Listener {
                 .replace("%pitch%", round(data.getPitch()))
                 .replace("%rotation_step_yaw%", round(plugin.getEditorRotationStepYaw()))
                 .replace("%rotation_step_pitch%", round(plugin.getEditorRotationStepPitch()))
+                .replace("%nudge_step%", round(plugin.getEditorNudgeStep()))
                 .replace("%x%", round(data.getX()))
                 .replace("%y%", round(data.getY()))
                 .replace("%z%", round(data.getZ()))

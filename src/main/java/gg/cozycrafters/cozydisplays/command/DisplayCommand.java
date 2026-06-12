@@ -112,7 +112,7 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command,
                              @NotNull String label, @NotNull String[] args) {
         if (!sender.hasPermission(PERMISSION)) {
-            sender.sendMessage(TextUtil.error("You do not have permission to use CozyDisplays."));
+            sender.sendMessage(TextUtil.error("You need the cozydisplays.admin permission to use this."));
             return true;
         }
 
@@ -166,7 +166,7 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             case "list" -> handleList(sender);
             case "reload" -> handleReload(sender);
             default -> {
-                sender.sendMessage(TextUtil.error("Unknown subcommand '" + args[0] + "'."));
+                sender.sendMessage(TextUtil.error("Unknown display command '" + args[0] + "'."));
                 sendUsage(sender);
             }
         }
@@ -441,7 +441,7 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         nearby.sort(java.util.Comparator.comparingDouble(NearbyDisplay::distance));
 
         if (nearby.isEmpty()) {
-            sender.sendMessage(TextUtil.error("No CozyDisplays found nearby."));
+            sender.sendMessage(TextUtil.info("No displays found within " + round(radius) + " blocks."));
             return;
         }
 
@@ -449,7 +449,7 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         for (NearbyDisplay entry : nearby) {
             DisplayData data = entry.data();
             Location loc = entry.location();
-            String line = "- " + data.getId() + " (" + round(entry.distance()) + "m) ["
+            String line = " - " + data.getId() + " (" + round(entry.distance()) + "m) ["
                     + data.getType() + "] at "
                     + round(loc.getX()) + ", " + round(loc.getY()) + ", " + round(loc.getZ());
             String preview = preview(data);
@@ -662,7 +662,7 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             return;
         }
         if (args.length >= 5) {
-            sender.sendMessage(TextUtil.info("Roll is not supported in CozyDisplays 1.8.3."));
+            sender.sendMessage(TextUtil.info("Roll is not supported by CozyDisplays."));
         }
         setRotation(data, yaw, pitch);
         manager.saveAll();
@@ -687,7 +687,7 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             return;
         }
         if (args.length >= 5) {
-            sender.sendMessage(TextUtil.info("Roll is not supported in CozyDisplays 1.8.3."));
+            sender.sendMessage(TextUtil.info("Roll is not supported by CozyDisplays."));
         }
         setRotation(data, data.getYaw() + yaw, data.getPitch() + pitch);
         manager.saveAll();
@@ -749,7 +749,7 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             return;
         }
         if (args.length >= 5) {
-            sender.sendMessage(TextUtil.info("Roll is not supported in CozyDisplays 1.8.3."));
+            sender.sendMessage(TextUtil.info("Roll is not supported by CozyDisplays."));
         }
         double max = plugin.getRotationMaxDegreesPerSecond();
         double clampedYaw = clamp(yaw, -max, max);
@@ -1738,7 +1738,7 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
     private DisplayData require(CommandSender sender, String id) {
         DisplayData data = manager.get(id);
         if (data == null) {
-            sender.sendMessage(TextUtil.error("No display found with id '" + id + "'."));
+            sender.sendMessage(TextUtil.error("Display '" + id + "' was not found."));
         }
         return data;
     }
@@ -1781,7 +1781,7 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
     }
 
     private void sendUsage(CommandSender sender) {
-        sender.sendMessage(TextUtil.info("CozyDisplays commands:"));
+        sender.sendMessage(TextUtil.info("Display commands:"));
         sender.sendMessage(TextUtil.info(" /display create <id> <text...>"));
         sender.sendMessage(TextUtil.info(" /display create text <id> <text...>"));
         sender.sendMessage(TextUtil.info(" /display create item <id> <material>"));
@@ -2026,15 +2026,15 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
         if (data.getType() == expected) {
             return true;
         }
-        sender.sendMessage(TextUtil.error("Display '" + data.getId() + "' is type "
-                + data.getType() + ", not " + expected + "."));
+        sender.sendMessage(TextUtil.error("Display '" + data.getId() + "' is "
+                + data.getType() + ". This action needs " + expected + "."));
         return false;
     }
 
     private Material parseMaterial(CommandSender sender, String raw) {
         Material material = Material.matchMaterial(raw);
         if (material == null || material.isAir()) {
-            sender.sendMessage(TextUtil.error("Invalid material '" + raw + "'."));
+            sender.sendMessage(TextUtil.error("Material '" + raw + "' was not found."));
             return null;
         }
         return material;
@@ -2046,7 +2046,7 @@ public final class DisplayCommand implements CommandExecutor, TabCompleter {
             return null;
         }
         if (!material.isBlock()) {
-            sender.sendMessage(TextUtil.error("Material '" + raw + "' is not a block."));
+            sender.sendMessage(TextUtil.error("Material '" + raw + "' is not a placeable block."));
             return null;
         }
         return material;

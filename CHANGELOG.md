@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.7] - Message and menu polish
+
+- Polished player-facing messages for consistency and readability.
+- Refined editor menu title, item names, lore, and empty-state/status wording.
+- Improved admin feedback wording without changing display behavior.
+- Bumped the plugin version to `1.8.7`.
+
 ## [1.8.6] - Text display restart alignment hotfix
 
 - Made TextDisplay spawning apply explicit line width, opacity, interpolation,

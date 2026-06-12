@@ -69,7 +69,7 @@ debug-placeholder-refresh: false
 
 # Basic admin editor GUI. Item names and lore support legacy & color codes.
 editor:
-  title: "&8Display Editor: %id%"
+  title: "&8CozyDisplays &7- &f%id%"
   nudge-step: 0.1
   scale-step: 0.1
   view-range-step: 4
@@ -79,51 +79,121 @@ editor:
   rotation-step-pitch: 15.0
   items:
     info:
-      name: "&b%id%"
+      name: "&d%id%"
       lore:
+        - "&7Manage this display."
+        - ""
+        - "&8- &7Type: &f%type%"
         - "&7World: &f%world%"
         - "&7Location: &f%x%, %y%, %z%"
+        - ""
+        - "&eUse the controls below."
     teleport:
       name: "&aTeleport"
       lore:
         - "&7Teleport to this display."
+        - ""
+        - "&8- &7World: &f%world%"
+        - "&8- &7Location: &f%x%, %y%, %z%"
+        - ""
+        - "&eClick to teleport."
     type:
-      name: "&bType: &f%type%"
+      name: "&bDisplay Type"
       lore:
-        - "&7Display type for this entry."
+        - "&7Shows what this display renders."
+        - ""
+        - "&8- &7Type: &f%type%"
     item-material:
       name: "&eItem: &f%material%"
       lore:
-        - "&7Click to suggest setitem command."
+        - "&7Prepare a material update command."
+        - ""
+        - "&8- &7Current: &f%material%"
+        - ""
+        - "&eClick to suggest command."
     block-material:
       name: "&eBlock: &f%material%"
       lore:
-        - "&7Click to suggest setblock command."
+        - "&7Prepare a block update command."
+        - ""
+        - "&8- &7Current: &f%material%"
+        - ""
+        - "&eClick to suggest command."
     panel-info:
-      name: "&bText Panel Info"
+      name: "&bText Panel"
       lore:
-        - "&7Render Mode: &f%render_mode%"
-        - "&7Alignment: &f%alignment%"
-        - "&7Background: &f%background%"
-        - "&7Color: &f%color%"
-        - "&7Opacity: &f%opacity%%"
-        - "&7Line Spacing: &f%spacing%"
+        - "&7Text display settings at a glance."
+        - ""
+        - "&8- &7Render: &f%render_mode%"
+        - "&8- &7Alignment: &f%alignment%"
+        - "&8- &7Background: &f%background%"
+        - "&8- &7Color: &f%color%"
+        - "&8- &7Opacity: &f%opacity%%"
+        - "&8- &7Spacing: &f%spacing%"
     render-mode-cycle:
       name: "&bCycle Render Mode"
+      lore:
+        - "&7Change how text lines are rendered."
+        - ""
+        - "&8- &7Current: &f%render_mode%"
+        - ""
+        - "&eClick to cycle mode."
     background-toggle:
       name: "&eToggle Background"
+      lore:
+        - "&7Show or hide the text background."
+        - ""
+        - "&8- &7Current: &f%background%"
+        - ""
+        - "&eClick to toggle."
     opacity-up:
       name: "&aOpacity +"
+      lore:
+        - "&7Increase the background opacity."
+        - ""
+        - "&8- &7Current: &f%opacity%%"
+        - ""
+        - "&eClick to increase."
     opacity-down:
       name: "&cOpacity -"
+      lore:
+        - "&7Reduce the background opacity."
+        - ""
+        - "&8- &7Current: &f%opacity%%"
+        - ""
+        - "&eClick to decrease."
     align-cycle:
       name: "&bCycle Alignment"
+      lore:
+        - "&7Adjust text alignment."
+        - ""
+        - "&8- &7Current: &f%alignment%"
+        - ""
+        - "&eClick to cycle."
     line-spacing-up:
       name: "&aLine Spacing +"
+      lore:
+        - "&7Add more space between lines."
+        - ""
+        - "&8- &7Current: &f%spacing%"
+        - ""
+        - "&eClick to increase."
     line-spacing-down:
       name: "&cLine Spacing -"
+      lore:
+        - "&7Tighten line spacing."
+        - ""
+        - "&8- &7Current: &f%spacing%"
+        - ""
+        - "&eClick to decrease."
     bgcolor-suggest:
       name: "&dSet Background Color"
+      lore:
+        - "&7Prepare the color command."
+        - ""
+        - "&8- &7Current: &f%color%"
+        - ""
+        - "&eClick to suggest command."
     rotate-left:
       name: "&eRotate Left"
     rotate-right:
@@ -136,17 +206,99 @@ editor:
       name: "&cReset Rotation"
     face-me:
       name: "&bFace Me"
+      lore:
+        - "&7Match your current facing direction."
+        - ""
+        - "&8- &7Yaw: &f%yaw%"
+        - "&8- &7Pitch: &f%pitch%"
+        - ""
+        - "&eClick to face you."
     move-here:
       name: "&eMove Here"
       lore:
         - "&7Move this display to your location."
+        - ""
+        - "&8- &7World: &f%world%"
+        - ""
+        - "&eClick to move."
     refresh:
       name: "&bRefresh"
       lore:
         - "&7Force placeholder/text refresh."
+        - ""
+        - "&8- &7Display: &f%id%"
+        - ""
+        - "&eClick to refresh now."
     clone:
       name: "&dClone"
       lore:
-        - "&7Click to suggest clone command."
+        - "&7Prepare a clone command."
+        - ""
+        - "&8- &7Source: &f%id%"
+        - ""
+        - "&eClick to suggest command."
     close:
       name: "&cClose"
+      lore:
+        - "&7Close the editor."
+        - ""
+        - "&eClick to close."
+    nudge:
+      lore:
+        - "&7Move this display by one editor step."
+        - ""
+        - "&8- &7Step: &f%nudge_step% blocks"
+        - ""
+        - "&eClick to nudge."
+    nudge-negative-x:
+      name: "&c-X"
+    nudge-positive-x:
+      name: "&a+X"
+    nudge-negative-y:
+      name: "&c-Y"
+    nudge-positive-y:
+      name: "&a+Y"
+    nudge-negative-z:
+      name: "&c-Z"
+    nudge-positive-z:
+      name: "&a+Z"
+    scale-down:
+      name: "&eScale -"
+      lore:
+        - "&7Make the display smaller."
+        - ""
+        - "&8- &7Current: &f%scale%"
+        - ""
+        - "&eClick to decrease."
+    scale-reset:
+      name: "&eReset Scale"
+      lore:
+        - "&7Return the display to normal size."
+        - ""
+        - "&8- &7Current: &f%scale%"
+        - ""
+        - "&eClick to reset to 1.0."
+    scale-up:
+      name: "&eScale +"
+      lore:
+        - "&7Make the display larger."
+        - ""
+        - "&8- &7Current: &f%scale%"
+        - ""
+        - "&eClick to increase."
+    view-range-down:
+      name: "&bView Range -"
+      lore:
+        - "&7Lower the render distance."
+        - ""
+        - "&8- &7Current: &f%view_range% blocks"
+        - ""
+        - "&eClick to decrease."
+    view-range-up:
+      name: "&bView Range +"
+      lore:
+        - "&7Raise the render distance."
+        - ""
+        - "&8- &7Current: &f%view_range% blocks"
+        - ""
+        - "&eClick to increase."
