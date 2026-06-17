@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.8.10] - Background fallback opacity reload hotfix
+
+- Changed the default TextDisplay background opacity to `25%` so displays with
+  missing or invalid saved background opacity no longer reload with a dark,
+  nearly opaque Minecraft default-style background.
+- Kept explicit saved background settings intact, including transparent
+  `background: false` displays and custom `background-color` /
+  `background-opacity` values.
+- Made display and template loading distinguish missing background keys from
+  explicit transparent settings, and continued applying an intentional
+  ARGB background color on every TextDisplay spawn/respawn path.
+- Bumped the plugin version to `1.8.10`.
+
 ## [1.8.9] - Display line insertion command
 
 - Added `/display insertline <id> <lineNumber> [text...]` to insert a new text

@@ -81,7 +81,7 @@ Create a shared background panel look:
 /display rendermode welcome single_entity
 /display background welcome enable
 /display bgcolor welcome #000000
-/display bgopacity welcome 70
+/display bgopacity welcome 25
 /display align welcome center
 ```
 
@@ -226,6 +226,12 @@ New text displays use `text-defaults.render-mode` from `config.yml`; existing
 saved displays without `text-render-mode` keep `LINE_ENTITIES` so live layouts
 do not change unexpectedly.
 
+Text backgrounds are always applied explicitly when TextDisplay entities spawn
+or respawn. Missing saved background keys use `text-defaults.background-enabled`,
+`text-defaults.background-color`, and `text-defaults.background-opacity`
+(`25` by default), while displays saved with `background: false` remain fully
+transparent.
+
 Example shared panel setup:
 
 ```text
@@ -233,7 +239,7 @@ Example shared panel setup:
 /display rendermode welcome single_entity
 /display background welcome enable
 /display bgcolor welcome #000000
-/display bgopacity welcome 70
+/display bgopacity welcome 25
 /display align welcome center
 ```
 
@@ -335,6 +341,12 @@ whole minutes, but new defaults and saves use minute-based keys.
 | `refresh.default-interval-minutes` | Default refresh interval for new or older displays. |
 | `refresh.default-only-when-viewed` | Whether new or older displays refresh only near viewers. |
 | `refresh.default-viewer-range` | Default viewer range for refresh visibility checks. |
+| `text-defaults.render-mode` | Render mode used when creating new text displays. |
+| `text-defaults.background-enabled` | Whether new text displays and missing saved background keys use a background. |
+| `text-defaults.background-color` | Default text background color as `#RRGGBB`. |
+| `text-defaults.background-opacity` | Default text background opacity as a percent. Defaults to `25`. |
+| `text-defaults.alignment` | Text alignment used when creating new text displays. |
+| `text-defaults.line-spacing` | Line spacing used when creating new line-entity text displays. |
 | `nearby-default-radius` | Default radius for `/display nearby`. |
 | `nearby-max-radius` | Maximum accepted radius for `/display nearby`. |
 | `interaction.default-width` | Default interaction hitbox width. |

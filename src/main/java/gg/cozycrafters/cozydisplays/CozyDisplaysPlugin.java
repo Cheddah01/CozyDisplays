@@ -22,6 +22,9 @@ import java.util.Locale;
  */
 public final class CozyDisplaysPlugin extends JavaPlugin {
 
+    private static final int DEFAULT_TEXT_BACKGROUND_OPACITY = 25;
+    private static final int LEGACY_TEXT_BACKGROUND_OPACITY = 90;
+
     private DisplayManager manager;
     private DisplayEditor editor;
     private PlaceholderService placeholders;
@@ -60,6 +63,7 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         saveDefaultConfig();
+        migrateConfigDefaults();
 
         this.placeholders = new PlaceholderService(this);
         placeholders.detect();
@@ -128,6 +132,7 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
             manager.despawnAll();
         }
         reloadConfig();
+        migrateConfigDefaults();
         placeholders.detect();
         applyRefreshConfig();
         manager.loadAndSpawnAll();
@@ -172,7 +177,8 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
         this.defaultTextRenderMode = readTextRenderMode("text-defaults.render-mode", TextRenderMode.LINE_ENTITIES);
         this.defaultTextBackgroundEnabled = getConfig().getBoolean("text-defaults.background-enabled", true);
         this.defaultTextBackgroundColor = readHexColor("text-defaults.background-color", "#000000");
-        this.defaultTextBackgroundOpacity = readInt("text-defaults.background-opacity", 90, 0, 100);
+        this.defaultTextBackgroundOpacity = readInt("text-defaults.background-opacity",
+                DEFAULT_TEXT_BACKGROUND_OPACITY, 0, 100);
         this.defaultTextAlignment = readTextAlignment("text-defaults.alignment", TextDisplay.TextAlignment.CENTER);
         this.defaultTextLineSpacing = readDouble("text-defaults.line-spacing", 0.25D, 0.05D, 2.0D);
         manager.setDebug(getConfig().getBoolean("debug-placeholder-refresh", false));
@@ -357,6 +363,38 @@ public final class CozyDisplaysPlugin extends JavaPlugin {
 
     public int getRefreshMinimumIntervalMinutes() {
         return refreshMinimumIntervalMinutes;
+    }
+
+    private void migrateConfigDefaults() {
+        boolean changed = false;
+        if (!getConfig().contains("text-defaults.background-enabled", true)) {
+            getConfig().set("text-defaults.background-enabled", true);
+            changed = true;
+        }
+        if (!getConfig().contains("text-defaults.background-color", true)) {
+            getConfig().set("text-defaults.background-color", "#000000");
+            changed = true;
+        }
+        if (!getConfig().contains("text-defaults.background-opacity", true)) {
+            getConfig().set("text-defaults.background-opacity", DEFAULT_TEXT_BACKGROUND_OPACITY);
+            changed = true;
+        } else if (isLegacyGeneratedBackgroundDefault()) {
+            getConfig().set("text-defaults.background-opacity", DEFAULT_TEXT_BACKGROUND_OPACITY);
+            getLogger().info("Updated legacy text-defaults.background-opacity from "
+                    + LEGACY_TEXT_BACKGROUND_OPACITY + "% to " + DEFAULT_TEXT_BACKGROUND_OPACITY
+                    + "% for safer TextDisplay reload defaults.");
+            changed = true;
+        }
+        if (changed) {
+            saveConfig();
+        }
+    }
+
+    private boolean isLegacyGeneratedBackgroundDefault() {
+        return getConfig().getInt("text-defaults.background-opacity", DEFAULT_TEXT_BACKGROUND_OPACITY)
+                == LEGACY_TEXT_BACKGROUND_OPACITY
+                && getConfig().getBoolean("text-defaults.background-enabled", true)
+                && "#000000".equalsIgnoreCase(getConfig().getString("text-defaults.background-color", "#000000"));
     }
 
     private int readRefreshMinutes(String minutesPath, String secondsPath, int fallback) {

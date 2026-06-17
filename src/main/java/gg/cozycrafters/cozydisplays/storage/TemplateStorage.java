@@ -94,8 +94,9 @@ public final class TemplateStorage {
         target.setAlignment(parseAlignment(sec.getString("alignment", "center")));
         target.setShadow(sec.getBoolean("shadow", true));
         target.setSeeThrough(sec.getBoolean("see-through", false));
-        target.setBackground(sec.getBoolean("background", false));
-        target.setBackgroundColor(normalizeColor(sec.getString("background-color", "#000000")));
+        target.setBackground(readBackgroundEnabled(sec));
+        target.setBackgroundColor(normalizeColor(sec.getString("background-color", readDefaultBackgroundColor()),
+                readDefaultBackgroundColor()));
         target.setBackgroundOpacity(readBackgroundOpacity(sec));
         target.setLineSpacing(readDouble(sec, "line-spacing", 0.28D, 0.05D, 2.0D));
         target.setScale(readDouble(sec, "scale", 1.0D, 0.1D, 10.0D));
@@ -187,11 +188,11 @@ public final class TemplateStorage {
         }
     }
 
-    private String normalizeColor(String raw) {
+    private String normalizeColor(String raw, String fallback) {
         if (raw != null && raw.matches("#[0-9A-Fa-f]{6}")) {
             return raw.toUpperCase(Locale.ROOT);
         }
-        return "#000000";
+        return fallback;
     }
 
     private Material parseMaterial(String raw, Material fallback) {
@@ -219,8 +220,23 @@ public final class TemplateStorage {
     }
 
     private int readDefaultBackgroundOpacity() {
-        int value = plugin.getConfig().getInt("text-defaults.background-opacity", 90);
+        int value = plugin.getConfig().getInt("text-defaults.background-opacity", 25);
         return Math.max(0, Math.min(100, value));
+    }
+
+    private boolean readBackgroundEnabled(ConfigurationSection sec) {
+        if (sec.contains("background")) {
+            return sec.getBoolean("background", false);
+        }
+        return plugin.getConfig().getBoolean("text-defaults.background-enabled", true);
+    }
+
+    private String readDefaultBackgroundColor() {
+        String raw = plugin.getConfig().getString("text-defaults.background-color", "#000000");
+        if (raw != null && raw.matches("#[0-9A-Fa-f]{6}")) {
+            return raw.toUpperCase(Locale.ROOT);
+        }
+        return "#000000";
     }
 
     private int readBackgroundOpacity(ConfigurationSection sec) {

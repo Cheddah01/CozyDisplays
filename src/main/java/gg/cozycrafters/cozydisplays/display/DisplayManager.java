@@ -377,13 +377,8 @@ public final class DisplayManager {
         entity.setSeeThrough(data.isSeeThrough());
         applyCommonDisplaySettings(entity, data);
 
-        if (data.isBackground()) {
-            entity.setDefaultBackground(false);
-            entity.setBackgroundColor(backgroundColor(data));
-        } else {
-            entity.setDefaultBackground(false);
-            entity.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
-        }
+        entity.setDefaultBackground(false);
+        entity.setBackgroundColor(backgroundColor(data));
         tagOwned(entity, data.getId(), false);
     }
 
@@ -461,6 +456,9 @@ public final class DisplayManager {
     }
 
     private Color backgroundColor(DisplayData data) {
+        if (!data.isBackground()) {
+            return Color.fromARGB(0, 0, 0, 0);
+        }
         String hex = data.getBackgroundColor();
         if (hex == null || !hex.matches("#[0-9A-Fa-f]{6}")) {
             hex = "#000000";

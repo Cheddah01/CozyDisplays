@@ -11,13 +11,13 @@ refresh:
   default-only-when-viewed: true
   default-viewer-range: 32
 
-# Defaults used only when creating new text displays. Existing saved displays
-# keep their stored settings, and missing saved keys use compatibility defaults.
+# Defaults used when creating new text displays. Missing saved background keys
+# also use these values, while explicit background: false stays transparent.
 text-defaults:
   render-mode: LINE_ENTITIES
   background-enabled: true
   background-color: "#000000"
-  background-opacity: 90
+  background-opacity: 25
   alignment: CENTER
   line-spacing: 0.25
 

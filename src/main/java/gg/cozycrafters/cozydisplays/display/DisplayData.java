@@ -30,9 +30,9 @@ public final class DisplayData {
     private TextDisplay.TextAlignment alignment = TextDisplay.TextAlignment.CENTER;
     private boolean shadow = true;
     private boolean seeThrough = false;
-    private boolean background = false;
+    private boolean background = true;
     private String backgroundColor = "#000000";
-    private int backgroundOpacity = 90;
+    private int backgroundOpacity = 25;
     private double lineSpacing = 0.28D;
     private double scale = 1.0D;
     private double viewRange = 12.0D;
